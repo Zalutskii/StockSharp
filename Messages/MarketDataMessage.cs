@@ -260,6 +260,12 @@ namespace StockSharp.Messages
 		public string BoardCode { get; set; }
 
 		/// <summary>
+		/// Interval for data refresh.
+		/// </summary>
+		[DataMember]
+		public TimeSpan? RefreshSpeed { get; set; }
+
+		/// <summary>
 		/// Initializes a new instance of the <see cref="MarketDataMessage"/>.
 		/// </summary>
 		public MarketDataMessage()
@@ -312,12 +318,13 @@ namespace StockSharp.Messages
 			destination.IsRegularTradingHours = IsRegularTradingHours;
 			destination.IsFinished = IsFinished;
 			destination.BoardCode = BoardCode;
+			destination.RefreshSpeed = RefreshSpeed;
 		}
 
 		/// <inheritdoc />
 		public override string ToString()
 		{
-			var str = base.ToString() + $",Sec={SecurityId},Type={DataType},IsSubscribe={IsSubscribe}";
+			var str = base.ToString() + $",Type={DataType},IsSubscribe={IsSubscribe}";
 
 			if (Arg != null)
 				str += $",Arg={Arg}";
@@ -357,6 +364,9 @@ namespace StockSharp.Messages
 
 			if (!BoardCode.IsEmpty())
 				str += $",BoardCode={BoardCode}";
+
+			if (RefreshSpeed != null)
+				str += $",Speed={RefreshSpeed}";
 
 			return str;
 		}

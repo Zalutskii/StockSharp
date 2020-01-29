@@ -18,8 +18,10 @@ namespace StockSharp.Algo.Storages.Binary.Snapshot
 		[StructLayout(LayoutKind.Sequential, Pack = 1)]
 		private struct QuotesSnapshotRow
 		{
-			public decimal Price;
-			public decimal Volume;
+			public BlittableDecimal Price;
+			public BlittableDecimal Volume;
+			public int OrdersCount;
+			public byte QuoteCondition;
 		}
 
 		[StructLayout(LayoutKind.Sequential, Pack = 1, CharSet = CharSet.Unicode)]
@@ -87,16 +89,11 @@ namespace StockSharp.Algo.Storages.Binary.Snapshot
 			var snapshotSize = typeof(QuotesSnapshot).SizeOf();
 			var rowSize = typeof(QuotesSnapshotRow).SizeOf();
 
-			var is21 = version == SnapshotVersions.V21;
-
-			if (is21)
-				rowSize += sizeof(int);
-
 			var buffer = new byte[snapshotSize + (bids.Length + asks.Length) * rowSize];
 
 			var ptr = snapshot.StructToPtr();
-			Marshal.Copy(ptr, buffer, 0, snapshotSize);
-			Marshal.FreeHGlobal(ptr);
+			ptr.CopyTo(buffer);
+			ptr.FreeHGlobal();
 
 			var offset = snapshotSize;
 
@@ -104,17 +101,16 @@ namespace StockSharp.Algo.Storages.Binary.Snapshot
 			{
 				var row = new QuotesSnapshotRow
 				{
-					Price = quote.Price,
-					Volume = quote.Volume,
+					Price = (BlittableDecimal)quote.Price,
+					Volume = (BlittableDecimal)quote.Volume,
+					OrdersCount = quote.OrdersCount ?? 0,
+					QuoteCondition = (byte)quote.Condition,
 				};
 
-				var rowPtr = row.StructToPtr();
+				var rowPtr = row.StructToPtr(rowSize);
 
-				if (is21)
-					rowPtr.Write(quote.OrdersCount ?? 0);
-
-				Marshal.Copy(rowPtr, buffer, offset, rowSize);
-				Marshal.FreeHGlobal(rowPtr);
+				rowPtr.CopyTo(buffer, offset, rowSize);
+				rowPtr.FreeHGlobal();
 
 				offset += rowSize;
 			}
@@ -127,35 +123,19 @@ namespace StockSharp.Algo.Storages.Binary.Snapshot
 			if (version == null)
 				throw new ArgumentNullException(nameof(version));
 
-			// Pin the managed memory while, copy it out the data, then unpin it
-			using (var handle = new GCHandle<byte[]>(buffer, GCHandleType.Pinned))
+			using (var handle = new GCHandle<byte[]>(buffer))
 			{
-				var ptr = handle.Value.AddrOfPinnedObject();
+				var ptr = handle.CreatePointer();
 
-				var snapshot = ptr.ToStruct<QuotesSnapshot>();
+				var snapshot = ptr.ToStruct<QuotesSnapshot>(true);
 
 				var bids = new QuoteChange[snapshot.BidCount];
 				var asks = new QuoteChange[snapshot.AskCount];
 
-				ptr += typeof(QuotesSnapshot).SizeOf();
-
-				var rowSize = Marshal.SizeOf(typeof(QuotesSnapshotRow));
-
-				var is21 = version == SnapshotVersions.V21;
-
 				QuoteChange ReadQuote()
 				{
-					var row = ptr.ToStruct<QuotesSnapshotRow>();
-					var quote = new QuoteChange(row.Price, row.Volume);
-					ptr += rowSize;
-
-					if (is21)
-					{
-						quote.OrdersCount = ptr.Read<int>().DefaultAsNull();
-						ptr += sizeof(int);
-					}
-
-					return quote;
+					var row = ptr.ToStruct<QuotesSnapshotRow>(true);
+					return new QuoteChange(row.Price, row.Volume, row.OrdersCount.DefaultAsNull(), (QuoteConditions)row.QuoteCondition);
 				}
 
 				for (var i = 0; i < snapshot.BidCount; i++)

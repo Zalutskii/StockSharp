@@ -80,7 +80,7 @@ namespace StockSharp.Algo
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			switch (message.Type)
 			{
@@ -98,12 +98,12 @@ namespace StockSharp.Algo
 
 				default:
 					if (message.Type.IsLookup() && !ProcessLookupMessage((ISubscriptionMessage)message))
-						return;
+						return true;
 
 					break;
 			}
 
-			base.OnSendInMessage(message);
+			return base.OnSendInMessage(message);
 		}
 
 		private bool ProcessLookupMessage(ISubscriptionMessage message)
@@ -186,7 +186,6 @@ namespace StockSharp.Algo
 				{
 					if (originIdMsg is SubscriptionFinishedMessage ||
 					    originIdMsg is SubscriptionOnlineMessage ||
-					    originIdMsg is TimeFrameLookupResultMessage ||
 					    originIdMsg is SubscriptionResponseMessage resp && !resp.IsOk())
 					{
 						if (_lookups.TryGetValue(id, out var info))

@@ -50,8 +50,9 @@ namespace StockSharp.Messages
 
 			var time = adapter.CurrentTime;
 
-			return new PortfolioChangeMessage
+			return new PositionChangeMessage
 			{
+				SecurityId = SecurityId.Money,
 				PortfolioName = pfName,
 				ServerTime = time,
 			};
@@ -819,6 +820,12 @@ namespace StockSharp.Messages
 
 				case MessageTypes.Execution:
 					return ((ExecutionTypes)arg).ToDataType();
+
+				case MessageTypes.TimeFrameInfo:
+					return DataType.TimeFrames;
+
+				case MessageTypes.UserInfo:
+					return DataType.Users;
 
 				default:
 					throw new ArgumentOutOfRangeException(nameof(type), type, LocalizedStrings.Str1219);
@@ -1607,6 +1614,20 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
+		/// Create subscription response.
+		/// </summary>
+		/// <param name="message">Subscription.</param>
+		/// <param name="error">Error info.</param>
+		/// <returns>Subscription response message.</returns>
+		public static SubscriptionResponseMessage CreateResponse(this ISubscriptionMessage message, Exception error = null)
+		{
+			if (message == null)
+				throw new ArgumentNullException(nameof(message));
+
+			return message.TransactionId.CreateSubscriptionResponse(error);
+		}
+
+		/// <summary>
 		/// Create <see cref="SubscriptionOnlineMessage"/> or <see cref="SubscriptionFinishedMessage"/> depends of <see cref="ISubscriptionMessage.To"/>.
 		/// </summary>
 		/// <param name="message">Subscription.</param>
@@ -1618,9 +1639,6 @@ namespace StockSharp.Messages
 
 			if (!message.IsSubscribe)
 				return new SubscriptionResponseMessage { OriginalTransactionId = message.TransactionId };
-
-			if (message.Type == MessageTypes.TimeFrameLookup)
-				return new TimeFrameLookupResultMessage { OriginalTransactionId = message.TransactionId };
 
 			var reply = message.To == null ? (IOriginalTransactionIdMessage)new SubscriptionOnlineMessage() : new SubscriptionFinishedMessage();
 			reply.OriginalTransactionId = message.TransactionId;
@@ -1754,7 +1772,7 @@ namespace StockSharp.Messages
 				case MessageTypes.PortfolioLookup:
 				case MessageTypes.UserLookup:
 				{
-					sendOut(((ITransactionIdMessage)message).TransactionId.CreateSubscriptionResponse(ex));
+					sendOut(((ISubscriptionMessage)message).CreateResponse(ex));
 					return true;
 				}
 
@@ -1802,6 +1820,7 @@ namespace StockSharp.Messages
 			}
 			else if (subscriptionIds != null && subscriptionIds.Length > 0)
 			{
+				message.SubscriptionId = 0;
 				message.SubscriptionIds = subscriptionIds;
 			}
 		}
@@ -2095,5 +2114,12 @@ namespace StockSharp.Messages
 			// by default adapter do not provide historical data except candles
 			return TimeSpan.Zero;
 		}
+
+		/// <summary>
+		/// Determines the specified type is crypto currency.
+		/// </summary>
+		/// <param name="type">Currency type.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsCrypto(this CurrencyTypes type) => type.GetAttributeOfType<CryptoAttribute>() != null;
 	}
 }

@@ -57,7 +57,7 @@ namespace StockSharp.Algo
 		public bool IsRestoreSubscriptionOnErrorReconnect { get; set; }
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			switch (message.Type)
 			{
@@ -98,9 +98,10 @@ namespace StockSharp.Algo
 					break;
 
 				default:
-					base.OnSendInMessage(message);
-					break;
+					return base.OnSendInMessage(message);
 			}
+
+			return true;
 		}
 
 		private void ProcessReset(Message message)
@@ -309,34 +310,22 @@ namespace StockSharp.Algo
 
 		private void ProcessUserLookupMessage(UserLookupMessage message)
 		{
-			ProcessInSubscriptionMessage(message, DataType.Users, default, id => new SubscriptionFinishedMessage
-			{
-				OriginalTransactionId = id,
-			});
+			ProcessInSubscriptionMessage(message, DataType.Users);
 		}
 
 		private void ProcessTimeFrameLookupMessage(TimeFrameLookupMessage message)
 		{
-			ProcessInSubscriptionMessage(message, DataType.TimeFrames, default, id => new TimeFrameLookupResultMessage
-			{
-				OriginalTransactionId = id,
-			});
+			ProcessInSubscriptionMessage(message, DataType.TimeFrames);
 		}
 
 		private void ProcessBoardLookupMessage(BoardLookupMessage message)
 		{
-			ProcessInSubscriptionMessage(message, DataType.Board, default, id => new SubscriptionFinishedMessage
-			{
-				OriginalTransactionId = id,
-			});
+			ProcessInSubscriptionMessage(message, DataType.Board);
 		}
 
 		private void ProcessSecurityLookupMessage(SecurityLookupMessage message)
 		{
-			ProcessInSubscriptionMessage(message, DataType.Securities, default, id => new SubscriptionFinishedMessage
-			{
-				OriginalTransactionId = id,
-			});
+			ProcessInSubscriptionMessage(message, DataType.Securities);
 		}
 
 		private void ProcessOrderStatusMessage(OrderStatusMessage message)
@@ -347,18 +336,12 @@ namespace StockSharp.Algo
 				return;
 			}
 
-			ProcessInSubscriptionMessage(message, DataType.Transactions, default, id => new SubscriptionOnlineMessage
-			{
-				OriginalTransactionId = id,
-			});
+			ProcessInSubscriptionMessage(message, DataType.Transactions);
 		}
 
 		private void ProcessPortfolioLookupMessage(PortfolioLookupMessage message)
 		{
-			ProcessInSubscriptionMessage(message, DataType.PositionChanges, default, id => new SubscriptionOnlineMessage
-			{
-				OriginalTransactionId = id,
-			});
+			ProcessInSubscriptionMessage(message, DataType.PositionChanges);
 		}
 
 		private void ProcessInPortfolioMessage(PortfolioMessage message)
@@ -377,8 +360,7 @@ namespace StockSharp.Algo
 		private SecurityId GetSecurityId(DataType dataType, SecurityId securityId) => IsSecurityRequired(dataType) ? securityId : default;
 
 		private void ProcessInSubscriptionMessage<TMessage>(TMessage message,
-			DataType dataType, SecurityId securityId = default,
-			Func<long, Message> createSendOut = null)
+			DataType dataType, SecurityId securityId = default)
 			where TMessage : Message, ISubscriptionMessage
 		{
 			if (message == null)
@@ -387,18 +369,12 @@ namespace StockSharp.Algo
 			if (dataType == null)
 				throw new ArgumentNullException(nameof(dataType));
 
-			if (createSendOut == null)
-			{
-				createSendOut = id => id.CreateSubscriptionResponse();
-				//throw new ArgumentNullException(nameof(createSendOut));
-			}
-
-			var isSubscribe = message.IsSubscribe;
 			var transId = message.TransactionId;
 
+			var isSubscribe = message.IsSubscribe;
+
 			Message sendInMsg = null;
-			Message sendOutMsg = null;
-			Message onlineMsg = null;
+			Message[] sendOutMsgs = null;
 
 			lock (_sync)
 			{
@@ -427,8 +403,20 @@ namespace StockSharp.Algo
 						}
 						else
 						{
-							sendOutMsg = createSendOut(transId);
-							onlineMsg = new SubscriptionOnlineMessage { OriginalTransactionId = transId };
+							var resultMsg = message.CreateResult();
+
+							if (message.Type == MessageTypes.MarketData)
+							{
+								sendOutMsgs = new[]
+								{
+									message.CreateResponse(),
+									resultMsg,
+								};
+							}
+							else
+							{
+								sendOutMsgs = new[] { resultMsg };
+							}
 						}
 
 						_subscriptionsById.Add(transId, info);
@@ -437,28 +425,29 @@ namespace StockSharp.Algo
 				}
 				else
 				{
-					var originId = message.OriginalTransactionId;
-
-					TMessage MakeUnsubscribe(TMessage m)
+					TMessage MakeUnsubscribe(TMessage m, long subscriptionId)
 					{
 						m.IsSubscribe = false;
 						m.TransactionId = transId;
-						m.OriginalTransactionId = originId;
+						m.OriginalTransactionId = subscriptionId;
 
 						return m;
 					}
 
-					if (_historicalRequests.TryGetValue(originId, out var subscription))
-					{
-						_historicalRequests.Remove(originId);
+					var originId = message.OriginalTransactionId;
 
-						sendInMsg = MakeUnsubscribe((TMessage)subscription);
+					if (_historicalRequests.TryGetAndRemove(originId, out var subscription))
+					{
+						sendInMsg = MakeUnsubscribe((TMessage)subscription, originId);
 					}
 					else if (_subscriptionsById.TryGetValue(originId, out var info))
 					{
 						if (!info.Subscribers.Remove(originId))
 						{
-							sendOutMsg = originId.CreateSubscriptionResponse(new InvalidOperationException(LocalizedStrings.SubscriptionNonExist.Put(originId)));
+							sendOutMsgs = new[]
+							{
+								(Message)originId.CreateSubscriptionResponse(new InvalidOperationException(LocalizedStrings.SubscriptionNonExist.Put(originId)))
+							};
 						}
 						else
 						{
@@ -468,15 +457,20 @@ namespace StockSharp.Algo
 								_subscriptionsById.Remove(originId);
 
 								// copy full subscription's details into unsubscribe request
-								sendInMsg = MakeUnsubscribe((TMessage)info.Subscription.Clone());
+								sendInMsg = MakeUnsubscribe((TMessage)info.Subscription.Clone(), info.Subscription.TransactionId);
 							}
 							else
-								sendOutMsg = createSendOut(transId);
+							{
+								sendOutMsgs = new[] { message.CreateResult() };
+							}
 						}
 					}
 					else
 					{
-						sendOutMsg = originId.CreateSubscriptionResponse(new InvalidOperationException(LocalizedStrings.SubscriptionNonExist.Put(originId)));
+						sendOutMsgs = new[]
+						{
+							(Message)originId.CreateSubscriptionResponse(new InvalidOperationException(LocalizedStrings.SubscriptionNonExist.Put(originId)))
+						};
 					}
 				}
 			}
@@ -487,16 +481,13 @@ namespace StockSharp.Algo
 				base.OnSendInMessage(sendInMsg);
 			}
 
-			if (sendOutMsg != null)
+			if (sendOutMsgs != null)
 			{
-				this.AddInfoLog("Out: {0}", sendOutMsg);
-				RaiseNewOutMessage(sendOutMsg);
-			}
-
-			if (onlineMsg != null)
-			{
-				this.AddInfoLog("Out: {0}", onlineMsg);
-				RaiseNewOutMessage(onlineMsg);
+				foreach (var sendOutMsg in sendOutMsgs)
+				{
+					this.AddInfoLog("Out: {0}", sendOutMsg);
+					RaiseNewOutMessage(sendOutMsg);	
+				}
 			}
 		}
 

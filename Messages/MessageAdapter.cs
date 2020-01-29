@@ -21,6 +21,7 @@ namespace StockSharp.Messages
 	using System.ComponentModel.DataAnnotations;
 	using System.Linq;
 
+	using Ecng.Collections;
 	using Ecng.Common;
 	using Ecng.ComponentModel;
 	using Ecng.Interop;
@@ -286,7 +287,7 @@ namespace StockSharp.Messages
 		}
 
 		/// <inheritdoc />
-		public void SendInMessage(Message message)
+		public bool SendInMessage(Message message)
 		{
 			if (message.Type == MessageTypes.Connect)
 			{
@@ -297,7 +298,7 @@ namespace StockSharp.Messages
 						Error = new InvalidOperationException(LocalizedStrings.Str169Params.Put(GetType().Name, Platform))
 					});
 
-					return;
+					return true;
 				}
 			}
 
@@ -305,7 +306,7 @@ namespace StockSharp.Messages
 
 			try
 			{
-				OnSendInMessage(message);
+				var result = OnSendInMessage(message);
 
 				if (IsAutoReplyOnTransactonalUnsubscription)
 				{
@@ -323,6 +324,8 @@ namespace StockSharp.Messages
 						}
 					}
 				}
+
+				return result;
 			}
 			catch (Exception ex)
 			{
@@ -331,6 +334,8 @@ namespace StockSharp.Messages
 				message.HandleErrorResponse(ex, CurrentTime, SendOutMessage);
 
 				SendOutError(ex);
+
+				return false;
 			}
 		}
 
@@ -338,7 +343,8 @@ namespace StockSharp.Messages
 		/// Send message.
 		/// </summary>
 		/// <param name="message">Message.</param>
-		protected abstract void OnSendInMessage(Message message);
+		/// <returns><see langword="true"/> if the specified message was processed successfully, otherwise, <see langword="false"/>.</returns>
+		protected abstract bool OnSendInMessage(Message message);
 
 		/// <summary>
 		/// Send outgoing message and raise <see cref="NewOutMessage"/> event.
@@ -362,8 +368,8 @@ namespace StockSharp.Messages
 
 			switch (message.Type)
 			{
-				case MessageTypes.TimeFrameLookupResult:
-					_timeFrames = ((TimeFrameLookupResultMessage)message).TimeFrames;
+				case MessageTypes.TimeFrameInfo:
+					_timeFrames.AddRange(((TimeFrameInfoMessage)message).TimeFrames);
 					break;
 			}
 
@@ -478,7 +484,7 @@ namespace StockSharp.Messages
 		public virtual IOrderLogMarketDepthBuilder CreateOrderLogMarketDepthBuilder(SecurityId securityId)
 			=> new OrderLogMarketDepthBuilder(securityId);
 
-		private IEnumerable<TimeSpan> _timeFrames = Enumerable.Empty<TimeSpan>();
+		private readonly HashSet<TimeSpan> _timeFrames = new HashSet<TimeSpan>();
 
 		/// <summary>
 		/// Get possible time-frames for the specified instrument.
@@ -507,6 +513,14 @@ namespace StockSharp.Messages
 
 		/// <inheritdoc />
 		public virtual bool IsSecurityRequired(DataType dataType) => true;
+
+		/// <inheritdoc />
+		[ReadOnly(false)]
+		public override string Name
+		{
+			get => base.Name;
+			set => base.Name = value;
+		}
 
 		/// <inheritdoc />
 		public override void Load(SettingsStorage storage)
@@ -583,9 +597,10 @@ namespace StockSharp.Messages
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			SendOutMessage(message);
+			return true;
 		}
 	}
 }

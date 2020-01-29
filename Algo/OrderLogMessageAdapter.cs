@@ -25,7 +25,7 @@
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			switch (message.Type)
 			{
@@ -38,7 +38,7 @@
 					break;
 			}
 
-			base.OnSendInMessage(message);
+			return base.OnSendInMessage(message);
 		}
 
 		private MarketDataMessage ProcessMarketDataRequest(MarketDataMessage message)
@@ -175,7 +175,9 @@
 
 						if (updated)
 						{
-							base.OnInnerAdapterNewOutMessage(builder.Depth.Clone());
+							var depth = (QuoteChangeMessage)builder.Depth.Clone();
+							depth.SetSubscriptionIds(subscriptionId: subscriptionId);
+							base.OnInnerAdapterNewOutMessage(depth);
 						}
 					}
 					catch (Exception ex)
@@ -184,7 +186,6 @@
 						// а только выводим сообщение в лог
 						base.OnInnerAdapterNewOutMessage(ex.ToErrorMessage());
 					}
-
 				}
 				else
 				{

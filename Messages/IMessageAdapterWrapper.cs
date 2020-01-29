@@ -48,6 +48,19 @@ namespace StockSharp.Messages
 		protected MessageAdapterWrapper(IMessageAdapter innerAdapter)
 		{
 			InnerAdapter = innerAdapter ?? throw new ArgumentNullException(nameof(innerAdapter));
+
+			_innerAdapterName = GetUnderlyingAdapter(InnerAdapter).Name;
+		}
+
+		private IMessageAdapter GetUnderlyingAdapter(IMessageAdapter adapter)
+		{
+			if (adapter == null)
+				throw new ArgumentNullException(nameof(adapter));
+
+			if (adapter is IMessageAdapterWrapper wrapper)
+				return GetUnderlyingAdapter(wrapper.InnerAdapter);
+
+			return adapter;
 		}
 
 		/// <inheritdoc />
@@ -130,7 +143,7 @@ namespace StockSharp.Messages
 		protected virtual bool SendInBackFurther => true;
 
 		/// <inheritdoc />
-		public virtual void SendInMessage(Message message)
+		public virtual bool SendInMessage(Message message)
 		{
 			if (message.IsBack)
 			{
@@ -142,15 +155,14 @@ namespace StockSharp.Messages
 				{
 					if (SendInBackFurther)
 					{
-						InnerAdapter.SendInMessage(message);
-						return;
+						return InnerAdapter.SendInMessage(message);
 					}
 				}
 			}
 
 			try
 			{
-				OnSendInMessage(message);
+				return OnSendInMessage(message);
 			}
 			catch (Exception ex)
 			{
@@ -166,9 +178,10 @@ namespace StockSharp.Messages
 		/// Send message.
 		/// </summary>
 		/// <param name="message">Message.</param>
-		protected virtual void OnSendInMessage(Message message)
+		/// <returns><see langword="true"/> if the specified message was processed successfully, otherwise, <see langword="false"/>.</returns>
+		protected virtual bool OnSendInMessage(Message message)
 		{
-			InnerAdapter.SendInMessage(message);
+			return InnerAdapter.SendInMessage(message);
 		}
 
 		/// <inheritdoc />
@@ -194,10 +207,12 @@ namespace StockSharp.Messages
 
 		Guid ILogSource.Id => InnerAdapter.Id;
 
+		private readonly string _innerAdapterName;
+
 		string ILogSource.Name
 		{
-			get => InnerAdapter.Name;
-			set => InnerAdapter.Name = value;
+			get => _innerAdapterName + $" ({GetType().Name.Remove(nameof(MessageAdapter))})";
+			set { }
 		}
 
 		/// <inheritdoc />

@@ -50886,5 +50886,95 @@ namespace StockSharp.Localization
 		/// Imbalance
 		/// </summary>
 		public static string Imbalance => GetString(ImbalanceKey);
+
+		/// <summary>
+		/// Orders (bids)
+		/// </summary>
+		public const string OrdersBidsKey = nameof(OrdersBids);
+
+		/// <summary>
+		/// Orders (bids)
+		/// </summary>
+		public static string OrdersBids => GetString(OrdersBidsKey);
+
+		/// <summary>
+		/// Orders (asks)
+		/// </summary>
+		public const string OrdersAsksKey = nameof(OrdersAsks);
+
+		/// <summary>
+		/// Orders (asks)
+		/// </summary>
+		public static string OrdersAsks => GetString(OrdersAsksKey);
+
+		/// <summary>
+		/// Error unsubscription market-data.
+		/// </summary>
+		public const string UnsubscribeErrorKey = nameof(UnsubscribeError);
+
+		/// <summary>
+		/// Error unsubscription market-data.
+		/// </summary>
+		public static string UnsubscribeError => GetString(UnsubscribeErrorKey);
+
+		/// <summary>
+		/// The storage '{0}' has version {1} is newer than the app {2}.
+		/// </summary>
+		public const string StorageVersionNewerKey = nameof(StorageVersionNewer);
+
+		/// <summary>
+		/// The storage '{0}' has version {1} is newer than the app {2}.
+		/// </summary>
+		public static string StorageVersionNewer => GetString(StorageVersionNewerKey);
+
+		/// <summary>
+		/// oneZERO
+		/// </summary>
+		public const string OneZeroKey = nameof(OneZero);
+
+		/// <summary>
+		/// oneZERO
+		/// </summary>
+		public static string OneZero => GetString(OneZeroKey);
+
+		/// <summary>
+		/// Indicative
+		/// </summary>
+		public const string IndicativeKey = nameof(Indicative);
+
+		/// <summary>
+		/// Indicative
+		/// </summary>
+		public static string Indicative => GetString(IndicativeKey);
+
+		/// <summary>
+		/// I
+		/// </summary>
+		public const string IndicativeCharKey = nameof(IndicativeChar);
+
+		/// <summary>
+		/// I
+		/// </summary>
+		public static string IndicativeChar => GetString(IndicativeCharKey);
+
+		/// <summary>
+		/// Quote condition.
+		/// </summary>
+		public const string QuoteConditionKey = nameof(QuoteCondition);
+
+		/// <summary>
+		/// Quote condition.
+		/// </summary>
+		public static string QuoteCondition => GetString(QuoteConditionKey);
+
+		/// <summary>
+		/// Margin section.
+		/// </summary>
+		public const string MarginSectionKey = nameof(MarginSection);
+
+		/// <summary>
+		/// Margin section.
+		/// </summary>
+		public static string MarginSection => GetString(MarginSectionKey);
 	}
 }

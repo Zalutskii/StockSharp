@@ -1504,8 +1504,9 @@ namespace StockSharp.Algo.Testing
 				_totalBlockedMoney = _totalBlockedMoney - prevPrice + money.PositionPrice;
 
 				result.Add(
-					new PortfolioChangeMessage
+					new PositionChangeMessage
 					{
+						SecurityId = SecurityId.Money,
 						ServerTime = posMsg.ServerTime,
 						LocalTime = posMsg.LocalTime,
 						PortfolioName = _name,
@@ -1628,8 +1629,9 @@ namespace StockSharp.Algo.Testing
 					_totalBlockedMoney += pair.Value.TotalPrice;
 
 				result.Add(
-					new PortfolioChangeMessage
+					new PositionChangeMessage
 					{
+						SecurityId = SecurityId.Money,
 						ServerTime = time,
 						LocalTime = time,
 						PortfolioName = _name,
@@ -1653,8 +1655,9 @@ namespace StockSharp.Algo.Testing
 					result.Add(ex.ToErrorMessage());
 				}
 
-				result.Add(new PortfolioChangeMessage
+				result.Add(new PositionChangeMessage
 				{
+					SecurityId = SecurityId.Money,
 					ServerTime = time,
 					LocalTime = time,
 					PortfolioName = _name,
@@ -1736,7 +1739,7 @@ namespace StockSharp.Algo.Testing
 		public IncrementalIdGenerator TradeIdGenerator { get; set; } = new IncrementalIdGenerator();
 
 		/// <inheritdoc />
-		public void SendInMessage(Message message)
+		public bool SendInMessage(Message message)
 		{
 			if (message == null) 
 				throw new ArgumentNullException(nameof(message));
@@ -2018,6 +2021,8 @@ namespace StockSharp.Algo.Testing
 			RecalcPnL(message.LocalTime, retVal);
 
 			BufferResult(retVal, message.LocalTime).ForEach(RaiseNewOutMessage);
+
+			return true;
 		}
 
 		/// <inheritdoc />

@@ -148,7 +148,7 @@ namespace StockSharp.Algo
 		}
 
 		/// <inheritdoc />
-		protected override void OnSendInMessage(Message message)
+		protected override bool OnSendInMessage(Message message)
 		{
 			switch (message.Type)
 			{
@@ -197,7 +197,7 @@ namespace StockSharp.Algo
 						if (filtered == null)
 						{
 							RaiseNewOutMessage(new SubscriptionResponseMessage { OriginalTransactionId = transId });
-							return;
+							return true;
 						}
 						else
 							RaiseNewOutMessage(filtered);
@@ -238,19 +238,19 @@ namespace StockSharp.Algo
 								if (!isFilteredMsg)
 									break;
 
-								reply = transId.CreateSubscriptionResponse(new InvalidOperationException(LocalizedStrings.SubscriptionNonExist.Put(mdMsg.OriginalTransactionId)));
+								reply = mdMsg.CreateResponse(new InvalidOperationException(LocalizedStrings.SubscriptionNonExist.Put(mdMsg.OriginalTransactionId)));
 							}
 						}
 
 						RaiseNewOutMessage(reply);
-						return;
+						return true;
 					}
 
 					break;
 				}
 			}
 
-			base.OnSendInMessage(message);
+			return base.OnSendInMessage(message);
 		}
 
 		/// <inheritdoc />

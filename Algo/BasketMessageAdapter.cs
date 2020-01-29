@@ -59,6 +59,7 @@ namespace StockSharp.Algo
 	/// <summary>
 	/// Adapter-aggregator that allows simultaneously to operate multiple adapters connected to different trading systems.
 	/// </summary>
+	[DisplayNameLoc(LocalizedStrings.BasketKey)]
 	public class BasketMessageAdapter : BaseLogReceiver, IMessageAdapter
 	{
 		private sealed class InnerAdapterList : CachedSynchronizedList<IMessageAdapter>, IInnerAdapterList
@@ -782,9 +783,9 @@ namespace StockSharp.Algo
 		}
 
 		/// <inheritdoc />
-		void IMessageChannel.SendInMessage(Message message)
+		bool IMessageChannel.SendInMessage(Message message)
 		{
-			OnSendInMessage(message);
+			return OnSendInMessage(message);
 		}
 
 		private static Tuple<ConnectionStates, Exception> CreateState(ConnectionStates state, Exception error = null)
@@ -801,11 +802,12 @@ namespace StockSharp.Algo
 		/// Send message.
 		/// </summary>
 		/// <param name="message">Message.</param>
-		protected virtual void OnSendInMessage(Message message)
+		/// <returns><see langword="true"/> if the specified message was processed successfully, otherwise, <see langword="false"/>.</returns>
+		protected virtual bool OnSendInMessage(Message message)
 		{
 			try
 			{
-				InternalSendInMessage(message);
+				return InternalSendInMessage(message);
 			}
 			catch (Exception ex)
 			{
@@ -814,10 +816,12 @@ namespace StockSharp.Algo
 				message.HandleErrorResponse(ex, CurrentTime, SendOutMessage, GetSubscribers);
 
 				SendOutError(ex);
+
+				return false;
 			}
 		}
 
-		private void InternalSendInMessage(Message message)
+		private bool InternalSendInMessage(Message message)
 		{
 			if (message is ITransactionIdMessage transIdMsg && transIdMsg.TransactionId == 0)
 				throw new ArgumentException(message.ToString());
@@ -836,7 +840,7 @@ namespace StockSharp.Algo
 				else
 				{
 					ProcessAdapterMessage(adapter, message);
-					return;	
+					return true;	
 				}
 			}
 
@@ -969,6 +973,8 @@ namespace StockSharp.Algo
 					break;
 				}
 			}
+
+			return true;
 		}
 
 		/// <inheritdoc />
@@ -1381,7 +1387,7 @@ namespace StockSharp.Algo
 				{
 					this.AddDebugLog("No adapter for {0}", message);
 
-					SendOutMessage(message.TransactionId.CreateSubscriptionResponse(new InvalidOperationException(LocalizedStrings.Str629Params.Put(message))));
+					SendOutMessage(message.CreateResponse(new InvalidOperationException(LocalizedStrings.Str629Params.Put(message))));
 				}
 				else
 				{
@@ -1489,17 +1495,25 @@ namespace StockSharp.Algo
 					}
 
 					case MessageTypes.Security:
+					{
 						var secMsg = (SecurityMessage)message;
 						ApplyParentLookupId(secMsg);
 						SecurityAdapterProvider.SetAdapter(secMsg.SecurityId, null, GetUnderlyingAdapter(innerAdapter).Id);
 						break;
+					}
 
 					case MessageTypes.Board:
 					case MessageTypes.BoardState:
+					case MessageTypes.TimeFrameInfo:
+					case MessageTypes.SecurityLegsInfo:
+					case MessageTypes.SecurityMappingInfo:
+					case MessageTypes.SecurityRoute:
+					case MessageTypes.PortfolioRoute:
 						ApplyParentLookupId((ISubscriptionIdMessage)message);
 						break;
 
 					case MessageTypes.Execution:
+					{
 						var execMsg = (ExecutionMessage)message;
 
 						if (execMsg.ExecutionType != ExecutionTypes.Transaction)
@@ -1514,6 +1528,7 @@ namespace StockSharp.Algo
 						}
 
 						break;
+					}
 				}
 			}
 
