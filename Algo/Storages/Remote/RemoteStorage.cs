@@ -192,22 +192,24 @@ namespace StockSharp.Algo.Storages.Remote
 		}
 
 		Guid IAuthenticationService.Login(string email, string password)
-		{
-			return ((IAuthenticationService)this).Login2(Products.Hydra, email, password).Item1;
-		}
+			=> Login(0, null, email, password).Item1;
 
 		Tuple<Guid, long> IAuthenticationService.Login2(Products product, string email, string password)
-		{
-			return ((IAuthenticationService)this).Login3(product, null, email, password);
-		}
+			=> Login(product.FromEnum().Id, null, email, password);
 
 		Tuple<Guid, long> IAuthenticationService.Login3(Products product, string version, string email, string password)
+			=> Login(product.FromEnum().Id, version, email, password);
+
+		Tuple<Guid, long> IAuthenticationService.Login4(long productId, string version, string email, string password)
+			=> Login(productId, version, email, password);
+
+		private Tuple<Guid, long> Login(long productId, string version, string email, string password)
 		{
 			var sessionId = Authorization.ValidateCredentials(email, password.Secure(), NetworkHelper.UserAddress);
 
 			_sessions.Add(sessionId, new SynchronizedDictionary<UserPermissions, SynchronizedDictionary<Tuple<string, string, string, DateTime?>, bool>>());
 
-			this.AddInfoLog(LocalizedStrings.Str2084Params, sessionId, email, product, version);
+			this.AddInfoLog(LocalizedStrings.Str2084Params, sessionId, email, productId, version);
 
 			return Tuple.Create(sessionId, -1L);
 		}

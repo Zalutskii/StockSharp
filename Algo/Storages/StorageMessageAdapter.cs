@@ -91,6 +91,12 @@ namespace StockSharp.Algo.Storages
 			SnapshotRegistry = snapshotRegistry ?? throw new ArgumentNullException(nameof(snapshotRegistry));
 			CandleBuilderProvider = candleBuilderProvider ?? throw new ArgumentNullException(nameof(candleBuilderProvider));
 
+			if (!(this is StorageMetaInfoMessageAdapter))
+				StartStorageTimer();
+		}
+
+		private void StartStorageTimer()
+		{
 			var isProcessing = false;
 			var sync = new SyncObject();
 
@@ -128,10 +134,16 @@ namespace StockSharp.Algo.Storages
 
 						if (Mode.Contains(StorageModes.Snapshot))
 						{
-							var snapshotStorage = GetSnapshotStorage(typeof(ExecutionMessage), ExecutionTypes.Transaction);
+							var snapshotStorage = GetSnapshotStorage(DataType.Transactions);
 
 							foreach (var message in pair.Value)
 							{
+								// do not store cancellation commands into snapshot
+								if (message.IsCancellation/* && message.TransactionId != 0*/)
+								{
+									continue;
+								}
+
 								var originTransId = message.OriginalTransactionId;
 
 								if (message.TransactionId == 0 && originTransId == 0)
@@ -164,12 +176,6 @@ namespace StockSharp.Algo.Storages
 								}
 								else
 								{
-									// do not store cancellation commands into snapshot
-									if (message.IsCancellation && message.TransactionId != 0)
-									{
-										continue;
-									}
-
 									if (originTransId != 0)
 									{
 										if (/*message.TransactionId == 0 && */_cancellationTransactions.TryGetValue(originTransId, out var temp))
@@ -244,7 +250,7 @@ namespace StockSharp.Algo.Storages
 						
 						if (Mode.Contains(StorageModes.Snapshot))
 						{
-							var snapshotStorage = GetSnapshotStorage(typeof(QuoteChangeMessage), null);
+							var snapshotStorage = GetSnapshotStorage(DataType.MarketDepth);
 
 							foreach (var message in pair.Value)
 								snapshotStorage.Update(message);
@@ -267,7 +273,7 @@ namespace StockSharp.Algo.Storages
 						
 						if (Mode.Contains(StorageModes.Snapshot))
 						{
-							var snapshotStorage = GetSnapshotStorage(typeof(Level1ChangeMessage), null);
+							var snapshotStorage = GetSnapshotStorage(DataType.Level1);
 
 							foreach (var message in today)
 								snapshotStorage.Update(message);
@@ -288,7 +294,7 @@ namespace StockSharp.Algo.Storages
 						
 						if (Mode.Contains(StorageModes.Snapshot))
 						{
-							var snapshotStorage = GetSnapshotStorage(typeof(PositionChangeMessage), null);
+							var snapshotStorage = GetSnapshotStorage(DataType.PositionChanges);
 
 							foreach (var message in messages)
 								snapshotStorage.Update(message);
@@ -412,10 +418,8 @@ namespace StockSharp.Algo.Storages
 			return args.Concat(DriveInternal.GetCandleArgs(Format, candleType, securityId, from, to)).Distinct();
 		}
 
-		private ISnapshotStorage GetSnapshotStorage(Type messageType, object arg)
-		{
-			return SnapshotRegistry.GetSnapshotStorage(messageType, arg);
-		}
+		private ISnapshotStorage GetSnapshotStorage(DataType dataType)
+			=> SnapshotRegistry.GetSnapshotStorage(dataType.MessageType, dataType.Arg);
 
 		private IMarketDataStorage<TMessage> GetStorage<TMessage>(SecurityId securityId, object arg)
 			where TMessage : Message
@@ -459,7 +463,7 @@ namespace StockSharp.Algo.Storages
 					break;
 
 				case MessageTypes.OrderStatus:
-					ProcessOrderStatus((OrderStatusMessage)message);
+					message = ProcessOrderStatus((OrderStatusMessage)message);
 					break;
 
 				case MessageTypes.OrderCancel:
@@ -473,7 +477,7 @@ namespace StockSharp.Algo.Storages
 			return true;
 		}
 
-		private void ProcessOrderStatus(OrderStatusMessage msg)
+		private OrderStatusMessage ProcessOrderStatus(OrderStatusMessage msg)
 		{
 			if (msg == null)
 				throw new ArgumentNullException(nameof(msg));
@@ -483,7 +487,7 @@ namespace StockSharp.Algo.Storages
 			_orderStatusIds.Add(transId);
 
 			if (!msg.IsSubscribe || (msg.Adapter != null && msg.Adapter != this))
-				return;
+				return msg;
 
 			if (!msg.HasOrderId() && msg.OriginalTransactionId == 0 && DaysLoad > TimeSpan.Zero)
 			{
@@ -492,7 +496,7 @@ namespace StockSharp.Algo.Storages
 
 				if (Mode.Contains(StorageModes.Snapshot))
 				{
-					var storage = (ISnapshotStorage<string, ExecutionMessage>)GetSnapshotStorage(typeof(ExecutionMessage), ExecutionTypes.Transaction);
+					var storage = (ISnapshotStorage<string, ExecutionMessage>)GetSnapshotStorage(DataType.Transactions);
 
 					foreach (var snapshot in storage.GetAll(from, to))
 					{
@@ -504,7 +508,14 @@ namespace StockSharp.Algo.Storages
 						snapshot.OriginalTransactionId = transId;
 						snapshot.SetSubscriptionIds(subscriptionId: transId);
 						RaiseStorageMessage(snapshot);
+
+						from = snapshot.ServerTime;
 					}
+
+					if (from >= to)
+						return null;
+
+					msg.From = from;
 				}
 				else if (Mode.Contains(StorageModes.Incremental))
 				{
@@ -518,6 +529,8 @@ namespace StockSharp.Algo.Storages
 					}
 				}
 			}
+
+			return msg;
 		}
 
 		private void ProcessOrderCancel(OrderCancelMessage msg)
@@ -599,7 +612,7 @@ namespace StockSharp.Algo.Storages
 				case MarketDataTypes.Level1:
 					if (Mode.Contains(StorageModes.Snapshot))
 					{
-						var level1Msg = (Level1ChangeMessage)GetSnapshotStorage(typeof(Level1ChangeMessage), null).Get(secId);
+						var level1Msg = (Level1ChangeMessage)GetSnapshotStorage(DataType.Level1).Get(secId);
 
 						if (level1Msg != null)
 						{
@@ -619,7 +632,7 @@ namespace StockSharp.Algo.Storages
 				case MarketDataTypes.MarketDepth:
 					if (Mode.Contains(StorageModes.Snapshot))
 					{
-						var quotesMsg = (QuoteChangeMessage)GetSnapshotStorage(typeof(QuoteChangeMessage), null).Get(secId);
+						var quotesMsg = (QuoteChangeMessage)GetSnapshotStorage(DataType.MarketDepth).Get(secId);
 
 						if (quotesMsg != null)
 						{

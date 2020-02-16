@@ -20,6 +20,7 @@ namespace StockSharp.Community
 	using System.Threading;
 
 	using Ecng.Common;
+	using Ecng.ComponentModel;
 
 	using StockSharp.Logging;
 
@@ -53,7 +54,7 @@ namespace StockSharp.Community
 		public ServerCredentials Credentials { get; }
 
 		/// <inheritdoc />
-		public Products? Product { get; set; }
+		public ProductData Product { get; set; }
 
 		/// <inheritdoc />
 		public Version Version { get; set; }
@@ -86,7 +87,7 @@ namespace StockSharp.Community
 		}
 
 		/// <inheritdoc />
-		public void Login(Products? product, Version version, string login, SecureString password)
+		public void Login(ProductData product, Version version, string login, SecureString password)
 		{
 			if (login.IsEmpty())
 				throw new ArgumentNullException(nameof(login));
@@ -94,27 +95,11 @@ namespace StockSharp.Community
 			if (password.IsEmpty())
 				throw new ArgumentNullException(nameof(password));
 
-			Guid sessionId;
+			var tuple = Invoke(f => f.Login4(product?.Id ?? 0, version.To<string>(), login, password.UnSecure()));
+			tuple.Item1.ToErrorCode().ThrowIfError();
 
-			if (product == null)
-			{
-				sessionId = Invoke(f => f.Login(login, password.UnSecure()));
-				sessionId.ToErrorCode().ThrowIfError();
-
-				NullableSessionId = sessionId;
-				UserId = Invoke(f => f.GetId(sessionId));
-			}
-			else
-			{
-				var tuple = Invoke(f => version == null
-					? f.Login2(product.Value, login, password.UnSecure())
-					: f.Login3(product.Value, version.To<string>(), login, password.UnSecure()));
-
-				tuple.Item1.ToErrorCode().ThrowIfError();
-
-				NullableSessionId = tuple.Item1;
-				UserId = tuple.Item2;
-			}
+			NullableSessionId = tuple.Item1;
+			UserId = tuple.Item2;
 
 			if (product != null)
 			{

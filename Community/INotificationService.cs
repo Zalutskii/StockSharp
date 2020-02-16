@@ -97,7 +97,17 @@ namespace StockSharp.Community
 		/// <param name="product">Product.</param>
 		/// <returns>Check result.</returns>
 		[OperationContract]
+		[Obsolete]
 		bool HasFeedback(Guid sessionId, Products product);
+
+		/// <summary>
+		/// Has feedback for specified product.
+		/// </summary>
+		/// <param name="sessionId">Session ID.</param>
+		/// <param name="productId">Product ID.</param>
+		/// <returns>Check result.</returns>
+		[OperationContract]
+		bool HasFeedback2(Guid sessionId, long productId);
 
 		/// <summary>
 		/// Send feedback for specified product.
@@ -108,6 +118,18 @@ namespace StockSharp.Community
 		/// <param name="comment">Comment.</param>
 		/// <returns>The execution result code.</returns>
 		[OperationContract]
+		[Obsolete]
 		byte SendFeedback(Guid sessionId, Products product, int rating, string comment);
+
+		/// <summary>
+		/// Send feedback for specified product.
+		/// </summary>
+		/// <param name="sessionId">Session ID.</param>
+		/// <param name="productId">Session ID.</param>
+		/// <param name="rating">Rating.</param>
+		/// <param name="comment">Comment.</param>
+		/// <returns>The execution result code.</returns>
+		[OperationContract]
+		byte SendFeedback2(Guid sessionId, long productId, int rating, string comment);
 	}
 }
