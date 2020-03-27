@@ -42,6 +42,7 @@ namespace StockSharp.Algo.Import
 				fields.Add(new FieldMapping<SecurityMessage, int>(nameof(SecurityMessage.Decimals), LocalizedStrings.Decimals, LocalizedStrings.Str548, (i, v) => i.Decimals = v));
 				fields.Add(new FieldMapping<SecurityMessage, decimal>(nameof(SecurityMessage.VolumeStep), LocalizedStrings.VolumeStep, LocalizedStrings.Str366, (i, v) => i.VolumeStep = v));
 				fields.Add(new FieldMapping<SecurityMessage, decimal>(nameof(SecurityMessage.MinVolume), LocalizedStrings.MinVolume, LocalizedStrings.MinVolumeDesc, (i, v) => i.MinVolume = v));
+				fields.Add(new FieldMapping<SecurityMessage, decimal>(nameof(SecurityMessage.MaxVolume), LocalizedStrings.MaxVolume, LocalizedStrings.MaxVolumeDesc, (i, v) => i.MaxVolume = v));
 				fields.Add(new FieldMapping<SecurityMessage, decimal>(nameof(SecurityMessage.Multiplier), LocalizedStrings.Str330, LocalizedStrings.LotVolume, (i, v) => i.Multiplier = v));
 				fields.Add(new FieldMapping<SecurityMessage, SecurityTypes>(nameof(SecurityMessage.SecurityType), LocalizedStrings.Type, LocalizedStrings.Str360, (i, v) => i.SecurityType = v));
 				fields.Add(new FieldMapping<SecurityMessage, CurrencyTypes>(nameof(SecurityMessage.Currency), LocalizedStrings.Currency, LocalizedStrings.Str382, (i, v) => i.Currency = v));
@@ -95,6 +96,7 @@ namespace StockSharp.Algo.Import
 						fields.Add(new FieldMapping<ExecutionMessage, decimal>(nameof(ExecutionMessage.OpenInterest), LocalizedStrings.Str150, LocalizedStrings.Str151, (i, v) => i.OpenInterest = v));
 						fields.Add(new FieldMapping<ExecutionMessage, bool>(nameof(ExecutionMessage.IsSystem), LocalizedStrings.Str342, LocalizedStrings.Str140, (i, v) => i.IsSystem = v));
 						fields.Add(new FieldMapping<ExecutionMessage, bool>(nameof(ExecutionMessage.IsUpTick), LocalizedStrings.Str157, LocalizedStrings.Str158, (i, v) => i.IsUpTick = v));
+						fields.Add(new FieldMapping<ExecutionMessage, CurrencyTypes>(nameof(ExecutionMessage.Currency), LocalizedStrings.Currency, LocalizedStrings.Str382Key, (i, v) => i.Currency = v));
 
 						break;
 					}

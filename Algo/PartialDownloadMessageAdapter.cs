@@ -399,11 +399,6 @@
 
 						if (!_partialRequests.TryGetValue(originId, out var info))
 							break;
-						
-						if (info.ReplyReceived)
-							return;
-
-						info.ReplyReceived = true;
 
 						var requestId = info.Origin.TransactionId;
 
@@ -411,7 +406,19 @@
 						{
 							_original.Remove(requestId);
 							_partialRequests.RemoveWhere(p => p.Value == info);
+
+							if (info.ReplyReceived)
+							{
+								// unexpected subscription stop
+								responseMsg.OriginalTransactionId = requestId;
+								break;
+							}
 						}
+						
+						if (info.ReplyReceived)
+							return;
+
+						info.ReplyReceived = true;
 						
 						responseMsg.OriginalTransactionId = requestId;
 					}
@@ -446,17 +453,6 @@
 					break;
 				}
 
-				case MessageTypes.CandleTimeFrame:
-				case MessageTypes.CandlePnF:
-				case MessageTypes.CandleRange:
-				case MessageTypes.CandleRenko:
-				case MessageTypes.CandleTick:
-				case MessageTypes.CandleVolume:
-				{
-					TryUpdateSubscriptionResult((CandleMessage)message);
-					break;
-				}
-
 				case MessageTypes.Execution:
 				{
 					var execMsg = (ExecutionMessage)message;
@@ -477,6 +473,14 @@
 				case MessageTypes.QuoteChange:
 				{
 					TryUpdateSubscriptionResult((QuoteChangeMessage)message);
+					break;
+				}
+
+				default:
+				{
+					if (message is CandleMessage candleMsg)
+						TryUpdateSubscriptionResult(candleMsg);
+
 					break;
 				}
 			}

@@ -180,7 +180,7 @@ namespace StockSharp.Algo.Storages.Csv
 					ExpiryTime = reader.ReadString().ToTime(),
 					//IsSupportAtomicReRegister = reader.ReadBool(),
 					//IsSupportMarketOrders = reader.ReadBool(),
-					TimeZone = TimeZoneInfo.FindSystemTimeZoneById(reader.ReadString()),
+					TimeZone = reader.ReadString().To<TimeZoneInfo>(),
 				};
 
 				var time = board.WorkingTime;
@@ -330,6 +330,7 @@ namespace StockSharp.Algo.Storages.Csv
 				public decimal? PriceStep { get; set; }
 				public decimal? VolumeStep { get; set; }
 				public decimal? MinVolume { get; set; }
+				public decimal? MaxVolume { get; set; }
 				public decimal? Multiplier { get; set; }
 				public int? Decimals { get; set; }
 				public SecurityTypes? Type { get; set; }
@@ -368,6 +369,7 @@ namespace StockSharp.Algo.Storages.Csv
 						PriceStep = PriceStep,
 						VolumeStep = VolumeStep,
 						MinVolume = MinVolume,
+						MaxVolume = MaxVolume,
 						Multiplier = Multiplier,
 						Decimals = Decimals,
 						Type = Type,
@@ -400,6 +402,7 @@ namespace StockSharp.Algo.Storages.Csv
 					PriceStep = security.PriceStep;
 					VolumeStep = security.VolumeStep;
 					MinVolume = security.MinVolume;
+					MaxVolume = security.MaxVolume;
 					Multiplier = security.Multiplier;
 					Decimals = security.Decimals;
 					Type = security.Type;
@@ -475,6 +478,9 @@ namespace StockSharp.Algo.Storages.Csv
 					return true;
 
 				if (IsChanged(security.MinVolume, liteSec.MinVolume, forced))
+					return true;
+
+				if (IsChanged(security.MaxVolume, liteSec.MaxVolume, forced))
 					return true;
 
 				if (IsChanged(security.Multiplier, liteSec.Multiplier, forced))
@@ -624,6 +630,9 @@ namespace StockSharp.Algo.Storages.Csv
 				if ((reader.ColumnCurr + 1) < reader.ColumnCount)
 					liteSec.UnderlyingSecurityMinVolume = reader.ReadNullableDecimal();
 
+				if ((reader.ColumnCurr + 1) < reader.ColumnCount)
+					liteSec.MaxVolume = reader.ReadNullableDecimal();
+
 				return liteSec.ToSecurity(this);
 			}
 
@@ -666,6 +675,7 @@ namespace StockSharp.Algo.Storages.Csv
 					data.MinVolume.To<string>(),
 					data.Shortable.To<string>(),
 					data.UnderlyingSecurityMinVolume.To<string>(),
+					data.MaxVolume.To<string>(),
 				});
 			}
 
@@ -845,6 +855,17 @@ namespace StockSharp.Algo.Storages.Csv
 					position.SettlementPrice = reader.ReadNullableDecimal();
 				}
 
+				if ((reader.ColumnCurr + 1) < reader.ColumnCount)
+				{
+					position.BuyOrdersCount = reader.ReadNullableInt();
+					position.SellOrdersCount = reader.ReadNullableInt();
+					position.BuyOrdersMargin = reader.ReadNullableDecimal();
+					position.SellOrdersMargin = reader.ReadNullableDecimal();
+					position.OrdersMargin = reader.ReadNullableDecimal();
+					position.OrdersCount = reader.ReadNullableInt();
+					position.TradesCount = reader.ReadNullableInt();
+				}
+
 				return position;
 			}
 
@@ -875,6 +896,13 @@ namespace StockSharp.Algo.Storages.Csv
 					data.UnrealizedPnL.To<string>(),
 					data.CurrentPrice.To<string>(),
 					data.SettlementPrice.To<string>(),
+					data.BuyOrdersCount.To<string>(),
+					data.SellOrdersCount.To<string>(),
+					data.BuyOrdersMargin.To<string>(),
+					data.SellOrdersMargin.To<string>(),
+					data.OrdersMargin.To<string>(),
+					data.OrdersCount.To<string>(),
+					data.TradesCount.To<string>(),
 				});
 			}
 
@@ -1105,7 +1133,7 @@ namespace StockSharp.Algo.Storages.Csv
 					list.Init(listErrors);
 
 					if (listErrors.Count > 0)
-						errors.Add(list, new AggregateException(listErrors));
+						errors.Add(list, listErrors.SingleOrAggr());
 				}
 				catch (Exception ex)
 				{

@@ -187,10 +187,10 @@ namespace StockSharp.Algo.Testing
 			base.DisposeManaged();
 		}
 
-		private IEnumerable<MarketDataTypes> _supportedMarketDataTypes;
+		private IEnumerable<DataType> _supportedMarketDataTypes;
 
 		/// <inheritdoc />
-		public override IEnumerable<MarketDataTypes> SupportedMarketDataTypes
+		public override IEnumerable<DataType> SupportedMarketDataTypes
 		{
 			get
 			{
@@ -201,9 +201,9 @@ namespace StockSharp.Algo.Testing
 					var dataTypes = drive.GetAvailableDataTypes(default, StorageFormat);
 
 					_supportedMarketDataTypes = dataTypes
-						.Select(dt => dt.ToMarketDataType())
-						.Where(t => t != null)
-						.Select(t => t.Value)
+						//.Select(dt => dt.ToMarketDataType())
+						//.Where(t => t != null)
+						//.Select(t => t.Value)
 						.Distinct()
 						.ToArray();
 				}
@@ -537,40 +537,37 @@ namespace StockSharp.Algo.Testing
 					break;
 				}
 
-				case MarketDataTypes.CandleTimeFrame:
-				case MarketDataTypes.CandleTick:
-				case MarketDataTypes.CandleVolume:
-				case MarketDataTypes.CandleRange:
-				case MarketDataTypes.CandlePnF:
-				case MarketDataTypes.CandleRenko:
-				{
-					if (_generators.ContainsKey(Tuple.Create(securityId, MarketDataTypes.Trades, arg)))
-					{
-						if (isSubscribe)
-							SendSubscriptionNotSupported(transId);
-
-						return;
-					}
-
-					if (isSubscribe)
-					{
-						var historySource = GetHistorySource();
-						var candleType = dataType.ToCandleMessage();
-
-						_basketStorage.AddStorage(historySource == null
-							? StorageRegistry.GetCandleMessageStorage(candleType, securityId, arg, Drive, StorageFormat)
-							: new InMemoryMarketDataStorage<CandleMessage>(securityId, arg, historySource, candleType),
-							transId);
-					}
-					else
-						_basketStorage.RemoveStorage(originId);
-
-					break;
-				}
-
 				default:
+				{
+					if (dataType.IsCandleDataType())
+					{
+						if (_generators.ContainsKey(Tuple.Create(securityId, MarketDataTypes.Trades, arg)))
+						{
+							if (isSubscribe)
+								SendSubscriptionNotSupported(transId);
+
+							return;
+						}
+
+						if (isSubscribe)
+						{
+							var historySource = GetHistorySource();
+							var candleType = dataType.ToCandleMessage();
+
+							_basketStorage.AddStorage(historySource == null
+									? StorageRegistry.GetCandleMessageStorage(candleType, securityId, arg, Drive, StorageFormat)
+									: new InMemoryMarketDataStorage<CandleMessage>(securityId, arg, historySource, candleType),
+								transId);
+						}
+						else
+							_basketStorage.RemoveStorage(originId);
+
+						break;
+					}
+
 					error = new InvalidOperationException(LocalizedStrings.Str1118Params.Put(dataType));
 					break;
+				}
 			}
 
 			SendSubscriptionReply(transId, error);

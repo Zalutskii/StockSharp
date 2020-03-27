@@ -5538,12 +5538,12 @@ namespace StockSharp.Localization
 		public static string Str538 => GetString(Str538Key);
 
 		/// <summary>
-		/// Combination
+		/// Matching
 		/// </summary>
 		public const string Str539Key = nameof(Str539);
 
 		/// <summary>
-		/// Combination
+		/// Matching
 		/// </summary>
 		public static string Str539 => GetString(Str539Key);
 
@@ -18178,12 +18178,12 @@ namespace StockSharp.Localization
 		public static string Str1875 => GetString(Str1875Key);
 
 		/// <summary>
-		/// SmartCOM connection timeout.
+		/// Connection timeout.
 		/// </summary>
 		public const string Str1876Key = nameof(Str1876);
 
 		/// <summary>
-		/// SmartCOM connection timeout.
+		/// Connection timeout.
 		/// </summary>
 		public static string Str1876 => GetString(Str1876Key);
 
@@ -41708,6 +41708,16 @@ namespace StockSharp.Localization
 		public static string TemplateTxtIndicator => GetString(TemplateTxtIndicatorKey);
 
 		/// <summary>
+		/// Position change txt export template.
+		/// </summary>
+		public const string TemplateTxtPositionChangeKey = nameof(TemplateTxtPositionChange);
+
+		/// <summary>
+		/// Position change txt export template.
+		/// </summary>
+		public static string TemplateTxtPositionChange => GetString(TemplateTxtPositionChangeKey);
+
+		/// <summary>
 		/// Depth template
 		/// </summary>
 		public const string TemplateDepthKey = nameof(TemplateDepth);
@@ -49478,6 +49488,26 @@ namespace StockSharp.Localization
 		public static string MinVolumeDesc => GetString(MinVolumeDescKey);
 
 		/// <summary>
+		/// Max volume
+		/// </summary>
+		public const string MaxVolumeKey = nameof(MaxVolume);
+
+		/// <summary>
+		/// Max volume
+		/// </summary>
+		public static string MaxVolume => GetString(MaxVolumeKey);
+
+		/// <summary>
+		/// Maximum volume allowed in order.
+		/// </summary>
+		public const string MaxVolumeDescKey = nameof(MaxVolumeDesc);
+
+		/// <summary>
+		/// Maximum volume allowed in order.
+		/// </summary>
+		public static string MaxVolumeDesc => GetString(MaxVolumeDescKey);
+
+		/// <summary>
 		/// Shortable
 		/// </summary>
 		public const string ShortableKey = nameof(Shortable);
@@ -49536,6 +49566,16 @@ namespace StockSharp.Localization
 		/// Volume {0} of order '{1}' is less than minimum allowed {2}.
 		/// </summary>
 		public static string OrderVolumeLessMin => GetString(OrderVolumeLessMinKey);
+
+		/// <summary>
+		/// Volume {0} of order '{1}' is more than maximum allowed {2}.
+		/// </summary>
+		public const string OrderVolumeMoreMaxKey = nameof(OrderVolumeMoreMax);
+
+		/// <summary>
+		/// Volume {0} of order '{1}' is more than maximum allowed {2}.
+		/// </summary>
+		public static string OrderVolumeMoreMax => GetString(OrderVolumeMoreMaxKey);
 
 		/// <summary>
 		/// Show strategy socket
@@ -50996,5 +51036,185 @@ namespace StockSharp.Localization
 		/// Downloaded hash '{0}' not match with calculated '{1}'.
 		/// </summary>
 		public static string FileHashNotMatch => GetString(FileHashNotMatchKey);
+
+		/// <summary>
+		/// File hash
+		/// </summary>
+		public const string FileHashKey = nameof(FileHash);
+
+		/// <summary>
+		/// File hash
+		/// </summary>
+		public static string FileHash => GetString(FileHashKey);
+
+		/// <summary>
+		/// Low bid
+		/// </summary>
+		public const string LowBidPriceKey = nameof(LowBidPrice);
+
+		/// <summary>
+		/// Low bid
+		/// </summary>
+		public static string LowBidPrice => GetString(LowBidPriceKey);
+
+		/// <summary>
+		/// Lowest bid during the session.
+		/// </summary>
+		public const string LowBidPriceDescKey = nameof(LowBidPriceDesc);
+
+		/// <summary>
+		/// Lowest bid during the session.
+		/// </summary>
+		public static string LowBidPriceDesc => GetString(LowBidPriceDescKey);
+
+		/// <summary>
+		/// High ask
+		/// </summary>
+		public const string HighAskPriceKey = nameof(HighAskPrice);
+
+		/// <summary>
+		/// High ask
+		/// </summary>
+		public static string HighAskPrice => GetString(HighAskPriceKey);
+
+		/// <summary>
+		/// Highest ask during the session.
+		/// </summary>
+		public const string HighAskPriceDescKey = nameof(HighAskPriceDesc);
+
+		/// <summary>
+		/// Highest ask during the session.
+		/// </summary>
+		public static string HighAskPriceDesc => GetString(HighAskPriceDescKey);
+
+		/// <summary>
+		/// Low trade vol
+		/// </summary>
+		public const string LastTradeVolumeLowKey = nameof(LastTradeVolumeLow);
+
+		/// <summary>
+		/// Low trade vol
+		/// </summary>
+		public static string LastTradeVolumeLow => GetString(LastTradeVolumeLowKey);
+
+		/// <summary>
+		/// Lowest last trade volume.
+		/// </summary>
+		public const string LastTradeVolumeLowDescKey = nameof(LastTradeVolumeLowDesc);
+
+		/// <summary>
+		/// Lowest last trade volume.
+		/// </summary>
+		public static string LastTradeVolumeLowDesc => GetString(LastTradeVolumeLowDescKey);
+
+		/// <summary>
+		/// High trade vol
+		/// </summary>
+		public const string LastTradeVolumeHighKey = nameof(LastTradeVolumeHigh);
+
+		/// <summary>
+		/// High trade vol
+		/// </summary>
+		public static string LastTradeVolumeHigh => GetString(LastTradeVolumeHighKey);
+
+		/// <summary>
+		/// Highest last trade volume.
+		/// </summary>
+		public const string LastTradeVolumeHighDescKey = nameof(LastTradeVolumeHighDesc);
+
+		/// <summary>
+		/// Highest last trade volume.
+		/// </summary>
+		public static string LastTradeVolumeHighDesc => GetString(LastTradeVolumeHighDescKey);
+
+		/// <summary>
+		/// Max support version.
+		/// </summary>
+		public const string MaxSupportVersionKey = nameof(MaxSupportVersion);
+
+		/// <summary>
+		/// Max support version.
+		/// </summary>
+		public static string MaxSupportVersion => GetString(MaxSupportVersionKey);
+
+		/// <summary>
+		/// Gaps
+		/// </summary>
+		public const string GapsKey = nameof(Gaps);
+
+		/// <summary>
+		/// Gaps
+		/// </summary>
+		public static string Gaps => GetString(GapsKey);
+
+		/// <summary>
+		/// Make gap in incremental messages for test purpose.
+		/// </summary>
+		public const string GapsDescKey = nameof(GapsDesc);
+
+		/// <summary>
+		/// Make gap in incremental messages for test purpose.
+		/// </summary>
+		public static string GapsDesc => GetString(GapsDescKey);
+
+		/// <summary>
+		/// Heikin Ashi
+		/// </summary>
+		public const string HeikinAshiKey = nameof(HeikinAshi);
+
+		/// <summary>
+		/// Heikin Ashi
+		/// </summary>
+		public static string HeikinAshi => GetString(HeikinAshiKey);
+
+		/// <summary>
+		/// Subscription {0} in state {1} and cannot be stopped.
+		/// </summary>
+		public const string SubscriptionInStateKey = nameof(SubscriptionInState);
+
+		/// <summary>
+		/// Subscription {0} in state {1} and cannot be stopped.
+		/// </summary>
+		public static string SubscriptionInState => GetString(SubscriptionInStateKey);
+
+		/// <summary>
+		/// Subscription {0} notify subscriber {1}.
+		/// </summary>
+		public const string SubscriptionNotifySubscriberKey = nameof(SubscriptionNotifySubscriber);
+
+		/// <summary>
+		/// Subscription {0} notify subscriber {1}.
+		/// </summary>
+		public static string SubscriptionNotifySubscriber => GetString(SubscriptionNotifySubscriberKey);
+
+		/// <summary>
+		/// Online subscription {0} removed.
+		/// </summary>
+		public const string OnlineSubscriptionRemovedKey = nameof(OnlineSubscriptionRemoved);
+
+		/// <summary>
+		/// Online subscription {0} removed.
+		/// </summary>
+		public static string OnlineSubscriptionRemoved => GetString(OnlineSubscriptionRemovedKey);
+
+		/// <summary>
+		/// Digitex Futures
+		/// </summary>
+		public const string DigitexFuturesKey = nameof(DigitexFutures);
+
+		/// <summary>
+		/// Digitex Futures
+		/// </summary>
+		public static string DigitexFutures => GetString(DigitexFuturesKey);
+
+		/// <summary>
+		/// Orders (margin)
+		/// </summary>
+		public const string OrdersMarginKey = nameof(OrdersMargin);
+
+		/// <summary>
+		/// Orders (margin)
+		/// </summary>
+		public static string OrdersMargin => GetString(OrdersMarginKey);
 	}
 }

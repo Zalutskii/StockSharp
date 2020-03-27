@@ -1008,8 +1008,15 @@ namespace StockSharp.Algo
 
 				if (quoteTo != null)
 				{
-					if (quoteTo.Volume == quoteFrom.Volume)
+					if (quoteTo.Volume == quoteFrom.Volume &&
+						quoteTo.OrdersCount == quoteFrom.OrdersCount &&
+						quoteTo.Action == quoteFrom.Action &&
+						quoteTo.Condition == quoteFrom.Condition &&
+						quoteTo.StartPosition == quoteFrom.StartPosition &&
+						quoteTo.EndPosition == quoteFrom.EndPosition)
+					{
 						mapTo.Remove(price);		// то же самое
+					}
 				}
 				else
 				{
@@ -1343,7 +1350,7 @@ namespace StockSharp.Algo
 				emulator.SendInMessage(regMsg);
 
 				if (errors.Count > 0)
-					throw new AggregateException(errors);
+					throw errors.SingleOrAggr();
 			}
 
 			return trades;
@@ -1959,6 +1966,9 @@ namespace StockSharp.Algo
 				if (criteria.MinVolume != null && s.MinVolume != null && s.MinVolume != criteria.MinVolume)
 					return false;
 
+				if (criteria.MaxVolume != null && s.MaxVolume != null && s.MaxVolume != criteria.MaxVolume)
+					return false;
+
 				if (criteria.UnderlyingSecurityMinVolume != null && s.UnderlyingSecurityMinVolume != null && s.UnderlyingSecurityMinVolume != criteria.UnderlyingSecurityMinVolume)
 					return false;
 
@@ -2402,8 +2412,31 @@ namespace StockSharp.Algo
 						case PositionChangeTypes.CommissionTaker:
 							position.CommissionTaker = (decimal)change.Value;
 							break;
-						default:
-							throw new ArgumentOutOfRangeException(nameof(change), change.Key, LocalizedStrings.Str1219);
+						case PositionChangeTypes.BuyOrdersCount:
+							position.BuyOrdersCount = (int)change.Value;
+							break;
+						case PositionChangeTypes.SellOrdersCount:
+							position.SellOrdersCount = (int)change.Value;
+							break;
+						case PositionChangeTypes.BuyOrdersMargin:
+							position.BuyOrdersMargin = (decimal)change.Value;
+							break;
+						case PositionChangeTypes.SellOrdersMargin:
+							position.SellOrdersMargin = (decimal)change.Value;
+							break;
+						case PositionChangeTypes.OrdersMargin:
+							position.OrdersMargin = (decimal)change.Value;
+							break;
+						case PositionChangeTypes.OrdersCount:
+							position.OrdersCount = (int)change.Value;
+							break;
+						case PositionChangeTypes.TradesCount:
+							position.TradesCount = (int)change.Value;
+							break;
+
+						// skip unknown fields
+						//default:
+						//	throw new ArgumentOutOfRangeException(nameof(change), change.Key, LocalizedStrings.Str1219);
 					}
 				}
 				catch (Exception ex)
@@ -2591,7 +2624,7 @@ namespace StockSharp.Algo
 							lastTradeChanged = true;
 							break;
 						case Level1Fields.LastTradeOrigin:
-							lastTrade.OrderDirection = (Sides?)value;
+							lastTrade.OrderDirection = (Sides)value;
 							lastTradeChanged = true;
 							break;
 						case Level1Fields.IsSystem:
@@ -2639,6 +2672,9 @@ namespace StockSharp.Algo
 							break;
 						case Level1Fields.MinVolume:
 							security.MinVolume = (decimal)value;
+							break;
+						case Level1Fields.MaxVolume:
+							security.MaxVolume = (decimal)value;
 							break;
 						case Level1Fields.UnderlyingMinVolume:
 							security.UnderlyingSecurityMinVolume = (decimal)value;
@@ -2750,6 +2786,12 @@ namespace StockSharp.Algo
 			{
 				if (isOverride || security.MinVolume == null)
 					security.MinVolume = message.MinVolume.Value;
+			}
+
+			if (message.MaxVolume != null)
+			{
+				if (isOverride || security.MaxVolume == null)
+					security.MaxVolume = message.MaxVolume.Value;
 			}
 
 			if (message.Multiplier != null)
@@ -3236,12 +3278,13 @@ namespace StockSharp.Algo
 		/// <param name="message">Change message.</param>
 		/// <param name="type">Change type.</param>
 		/// <param name="value">Change value.</param>
+		/// <param name="isZeroAcceptable">Is zero value is acceptable values.</param>
 		/// <returns>Change message.</returns>
-		public static TMessage TryAdd<TMessage, TChange>(this TMessage message, TChange type, int value)
+		public static TMessage TryAdd<TMessage, TChange>(this TMessage message, TChange type, int value, bool isZeroAcceptable = false)
 			where TMessage : BaseChangeMessage<TMessage, TChange>, new()
 		{
-			//if (value == 0)
-			//	return message;
+			if (value == 0 && !isZeroAcceptable)
+				return message;
 
 			return message.Add(type, value);
 		}
@@ -3254,14 +3297,15 @@ namespace StockSharp.Algo
 		/// <param name="message">Change message.</param>
 		/// <param name="type">Change type.</param>
 		/// <param name="value">Change value.</param>
+		/// <param name="isZeroAcceptable">Is zero value is acceptable values.</param>
 		/// <returns>Change message.</returns>
-		public static TMessage TryAdd<TMessage, TChange>(this TMessage message, TChange type, int? value)
+		public static TMessage TryAdd<TMessage, TChange>(this TMessage message, TChange type, int? value, bool isZeroAcceptable = false)
 			where TMessage : BaseChangeMessage<TMessage, TChange>, new()
 		{
-			if (value == null/* || value == 0*/)
+			if (value == null)
 				return message;
 
-			return message.Add(type, value.Value);
+			return message.TryAdd(type, value.Value, isZeroAcceptable);
 		}
 
 		/// <summary>
@@ -3272,11 +3316,12 @@ namespace StockSharp.Algo
 		/// <param name="message">Change message.</param>
 		/// <param name="type">Change type.</param>
 		/// <param name="value">Change value.</param>
+		/// <param name="isZeroAcceptable">Is zero value is acceptable values.</param>
 		/// <returns>Change message.</returns>
-		public static TMessage TryAdd<TMessage, TChange>(this TMessage message, TChange type, long value)
+		public static TMessage TryAdd<TMessage, TChange>(this TMessage message, TChange type, long value, bool isZeroAcceptable = false)
 			where TMessage : BaseChangeMessage<TMessage, TChange>, new()
 		{
-			if (value == 0)
+			if (value == 0 && !isZeroAcceptable)
 				return message;
 
 			return message.Add(type, value);
@@ -3290,14 +3335,15 @@ namespace StockSharp.Algo
 		/// <param name="message">Change message.</param>
 		/// <param name="type">Change type.</param>
 		/// <param name="value">Change value.</param>
+		/// <param name="isZeroAcceptable">Is zero value is acceptable values.</param>
 		/// <returns>Change message.</returns>
-		public static TMessage TryAdd<TMessage, TChange>(this TMessage message, TChange type, long? value)
+		public static TMessage TryAdd<TMessage, TChange>(this TMessage message, TChange type, long? value, bool isZeroAcceptable = false)
 			where TMessage : BaseChangeMessage<TMessage, TChange>, new()
 		{
-			if (value == null || value == 0)
+			if (value == null)
 				return message;
 
-			return message.Add(type, value.Value);
+			return message.TryAdd(type, value.Value, isZeroAcceptable);
 		}
 
 		/// <summary>
@@ -4602,7 +4648,13 @@ namespace StockSharp.Algo
 					return typeof(PortfolioStates);
 
 				case PositionChangeTypes.Currency:
-					return typeof(Currency);
+					return typeof(CurrencyTypes);
+
+				case PositionChangeTypes.BuyOrdersCount:
+				case PositionChangeTypes.SellOrdersCount:
+				case PositionChangeTypes.OrdersCount:
+				case PositionChangeTypes.TradesCount:
+					return typeof(int);
 
 				default:
 					return type.IsObsolete() ? null : typeof(decimal);
@@ -5140,7 +5192,7 @@ namespace StockSharp.Algo
 						sync.WaitSignal();
 
 					if (error != null)
-						throw error;
+						throw new InvalidOperationException(LocalizedStrings.Str2959, error);
 
 					responseReceived = false;
 				}
@@ -5153,7 +5205,7 @@ namespace StockSharp.Algo
 						sync.WaitSignal();
 
 					if (error != null)
-						throw error;
+						throw new InvalidOperationException(LocalizedStrings.Str2955, error);
 
 					responseReceived = false;
 				}
@@ -5361,5 +5413,23 @@ namespace StockSharp.Algo
 		{
 			return state == SubscriptionStates.Active || state == SubscriptionStates.Online;
 		}
+
+		/// <summary>
+		/// Determines whether the specified news related with StockSharp.
+		/// </summary>
+		/// <param name="news">News.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsStockSharp(this News news)
+		{
+			if (news == null)
+				throw new ArgumentNullException(nameof(news));
+
+			return news.Source.CompareIgnoreCase(Messages.Extensions.NewsStockSharpSource);
+		}
+
+		/// <summary>
+		/// Indicator value.
+		/// </summary>
+		public static DataType IndicatorValue { get; } = DataType.Create(typeof(Indicators.IIndicatorValue), null);//.Immutable();
 	}
 }

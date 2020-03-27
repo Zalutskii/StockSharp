@@ -117,6 +117,11 @@ namespace StockSharp.Algo
 		/// <summary>
 		/// Security native identifier storage.
 		/// </summary>
+		public static INativeIdStorage TryNativeIdStorage => ConfigManager.TryGetService<INativeIdStorage>();
+
+		/// <summary>
+		/// Security native identifier storage.
+		/// </summary>
 		public static INativeIdStorage NativeIdStorage => ConfigManager.GetService<INativeIdStorage>();
 		
 		/// <summary>
@@ -137,7 +142,7 @@ namespace StockSharp.Algo
 		/// <summary>
 		/// The client for access to the StockSharp notification service.
 		/// </summary>
-		public static INotificationClient TryNotificationClient => ConfigManager.GetService<INotificationClient>();
+		public static INotificationClient TryNotificationClient => ConfigManager.TryGetService<INotificationClient>();
 
 		/// <summary>
 		/// The client for access to the service of work with files and documents.

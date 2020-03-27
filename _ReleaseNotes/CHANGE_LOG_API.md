@@ -1,6 +1,7 @@
 StockSharp API Change log
 ========================
-## v4.4.17:
+## v5.0.0:
+* (feature) .NET 4.8 and .NET Core 3.1
 * (feature) INativeIdStorage. Clear method added.
 * (bug) FinamHistorySource. Fix https://stocksharp.ru/forum/10395/skachivanie-tikovyh-i-svechnyh-istoricheskih-dannyh-gidroi-s-finama/
 * (bug) DiMinus, DiPlus, IchimokuChinkouLine, IchimokuLine, RelativeVigorIndexAverage, RelativeVigorIndexSignal excluded from indicators list.
@@ -337,6 +338,14 @@ StockSharp API Change log
 * (bug) OKEX. Fix https://stocksharp.ru/forum/11384/oshibki-registratsii-orderov-dlya-okex/
 * (feature) IFileService. Compression added.
 * (feature) IUpdateService created.
+* (feature) Security. MaxVolume property added.
+* (feature) Level1. LowBidPrice, HighAskPrice, LastTradeVolumeLow, LastTradeVolumeHigh new fields.
+* (feature) News. ExpiryDate property added.
+* (feature) Tick storage. Supports string ids.
+* (feature) Heikin Ashi candles.
+* (feature) DigitexFutures connector.
+* (feature) Position. BuyOrdersCount, SellOrdersCount, BuyOrdersMargin, SellOrdersMargin, OrdersMargin, OrdersCount, TradesCount.
+* (bug) FileLogListener. Clean out of date writers.
 
 ## v4.4.16:
 * (feature) Alerts. Message made optional for sound based events.

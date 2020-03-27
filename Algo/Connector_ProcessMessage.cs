@@ -286,9 +286,9 @@ namespace StockSharp.Algo
 					if (RiskManager != null)
 						_inAdapter = new RiskMessageAdapter(_inAdapter) { RiskManager = RiskManager, OwnInnerAdapter = true };
 
-					if (SecurityStorage != null && StorageRegistry != null && SnapshotRegistry != null)
+					if (SecurityStorage != null && StorageRegistry != null && _adapter.StorageProcessor.SnapshotRegistry != null)
 					{
-						_inAdapter = StorageAdapter = new StorageMetaInfoMessageAdapter(_inAdapter, SecurityStorage, PositionStorage, StorageRegistry.ExchangeInfoProvider, StorageRegistry, SnapshotRegistry, _adapter.CandleBuilderProvider)
+						_inAdapter = StorageAdapter = new StorageMetaInfoMessageAdapter(_inAdapter, SecurityStorage, PositionStorage, StorageRegistry.ExchangeInfoProvider, _adapter.StorageProcessor)
 						{
 							OwnInnerAdapter = true,
 							OverrideSecurityData = OverrideSecurityData
@@ -655,22 +655,19 @@ namespace StockSharp.Algo
 						ProcessSecurityRemoveMessage((SecurityRemoveMessage)message);
 						break;
 
-					case MessageTypes.CandleTimeFrame:
-					case MessageTypes.CandlePnF:
-					case MessageTypes.CandleRange:
-					case MessageTypes.CandleRenko:
-					case MessageTypes.CandleTick:
-					case MessageTypes.CandleVolume:
-						ProcessCandleMessage((CandleMessage)message);
-						break;
-
 					case MessageTypes.ChangePassword:
 						ProcessChangePasswordMessage((ChangePasswordMessage)message);
 						break;
 
-					// если адаптеры передают специфичные сообщения
-					//default:
-					//	throw new ArgumentOutOfRangeException(LocalizedStrings.Str2142Params.Put(message.Type));
+					default:
+					{
+						if (message is CandleMessage candleMsg)
+							ProcessCandleMessage(candleMsg);
+
+						// если адаптеры передают специфичные сообщения
+						// throw new ArgumentOutOfRangeException(LocalizedStrings.Str2142Params.Put(message.Type));
+						break;
+					}
 				}
 			}
 			catch (Exception ex)
@@ -739,49 +736,47 @@ namespace StockSharp.Algo
 
 		private void ProcessSubscriptionFinishedMessage(SubscriptionFinishedMessage message)
 		{ 
-			var subscription = _subscriptionManager.ProcessSubscriptionFinishedMessage(message);
+			var subscription = _subscriptionManager.ProcessSubscriptionFinishedMessage(message, out var items);
 
 			if (subscription == null)
 				return;
 
 			RaiseMarketDataSubscriptionFinished(message, subscription);
 
-			ProcessSubscriptionResult(subscription);
+			ProcessSubscriptionResult(subscription, items);
 		}
 
 		private void ProcessSubscriptionOnlineMessage(SubscriptionOnlineMessage message)
 		{
-			var subscription = _subscriptionManager.ProcessSubscriptionOnlineMessage(message);
+			var subscription = _subscriptionManager.ProcessSubscriptionOnlineMessage(message, out var items);
 
 			if (subscription == null)
 				return;
 
 			RaiseMarketDataSubscriptionOnline(subscription);
 
-			ProcessSubscriptionResult(subscription);
+			ProcessSubscriptionResult(subscription, items);
 		}
 
-		private void ProcessSubscriptionResult(Subscription subscription)
+		private void ProcessSubscriptionResult(Subscription subscription, object[] items)
 		{
+			T[] Typed<T>() => items.Cast<T>().ToArray();
+
 			if (subscription.SubscriptionMessage is SecurityLookupMessage secLookup)
 			{
-				var items = _subscriptionManager.GetLookupItems<Security>(subscription);
-				RaiseLookupSecuritiesResult(secLookup, null, Securities.Filter(secLookup).ToArray(), items);
+				RaiseLookupSecuritiesResult(secLookup, null, Securities.Filter(secLookup).ToArray(), Typed<Security>());
 			}
 			else if (subscription.SubscriptionMessage is BoardLookupMessage boardLookup)
 			{
-				var items = _subscriptionManager.GetLookupItems<ExchangeBoard>(subscription);
-				RaiseLookupBoardsResult(boardLookup, null, ExchangeBoards.Filter(boardLookup).ToArray(), items);
+				RaiseLookupBoardsResult(boardLookup, null, ExchangeBoards.Filter(boardLookup).ToArray(), Typed<ExchangeBoard>());
 			}
 			else if (subscription.SubscriptionMessage is PortfolioLookupMessage pfLookup)
 			{
-				var items = _subscriptionManager.GetLookupItems<Portfolio>(subscription);
-				RaiseLookupPortfoliosResult(pfLookup, null, Portfolios.Filter(pfLookup).ToArray(), items);
+				RaiseLookupPortfoliosResult(pfLookup, null, Portfolios.Filter(pfLookup).ToArray(), Typed<Portfolio>());
 			}
 			else if (subscription.SubscriptionMessage is TimeFrameLookupMessage tfLookup)
 			{
-				var items = _subscriptionManager.GetLookupItems<TimeSpan>(subscription);
-				RaiseLookupTimeFramesResult(tfLookup, null, items, items);
+				RaiseLookupTimeFramesResult(tfLookup, null, Typed<TimeSpan>(), Typed<TimeSpan>());
 			}
 		}
 
@@ -1354,7 +1349,7 @@ namespace StockSharp.Algo
 			if (message.IsUpTick != null)
 			{
 				info.SetValue(Level1Fields.LastTradeUpDown, message.IsUpTick.Value);
-				changes.Add(new KeyValuePair<Level1Fields, object>(Level1Fields.LastTradeOrigin, message.IsUpTick.Value));
+				changes.Add(new KeyValuePair<Level1Fields, object>(Level1Fields.LastTradeUpDown, message.IsUpTick.Value));
 			}
 
 			if (tuple.Item2)
@@ -1630,6 +1625,13 @@ namespace StockSharp.Algo
 
 					if (order == null)
 					{
+						if (message.SecurityId == default)
+						{
+							this.AddWarningLog(LocalizedStrings.Str1025);
+							this.AddWarningLog(message.ToString());
+							break;
+						}
+
 						security = EnsureGetSecurity(message);
 
 						if (transactionId == 0 && isStatusRequest)

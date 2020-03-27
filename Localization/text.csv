@@ -359,8 +359,8 @@ Delta;Delta;Дельта
 Gamma;Gamma;Гамма
 Vega;Vega;Вега
 Theta;Theta;Тета
-Str304;Initial margin (buy);ГО (покупка)
-Str305;Initial margin (sell);ГО (продажа)
+Str304;Margin (buy);ГО (покупка)
+Str305;Margin (sell);ГО (продажа)
 Str306;Minimum price step;Минимальный шаг цены
 Str307;Minimum volume step;Минимальный шаг объема
 Str308;Last trade price;Цена последней сделки
@@ -550,7 +550,7 @@ Str535;Orders log item.;Строка лога заявок.
 Str536Params;{0} orders {1};{0} заявки {1}
 Str537;Cancellation;Снятие
 Str538;Registration;Регистрация
-Str539;Combination;Сведение
+Str539;Matching;Сведение
 Str540Params;per trade {0};на сделку {0}
 Str541;Portfolio, describing the trading account and the size of its generated commission.;Портфель, описывающий торговый счет и размер сгенерированной комиссии по нему.
 Leverage;Leverage;Плечо
@@ -1819,7 +1819,7 @@ Str1872Params;Wrong direction {0} orders {0}/{1}.;Неправильное на�
 Str1873Params;Order {0} was not accepted by the system.;Заявка {0} не была принята системой.
 Str1874Params;No transaction with SmartCOM ID {0} found.;Не найдена ни одна транзакция с идентификатором SmartCOM {0}.
 Str1875;Connection to SmartCOM is not initialized.;Подключение к SmartCOM не инициализировано.
-Str1876;SmartCOM connection timeout.;Время установления связи со SmartCOM вышло.
+Str1876;Connection timeout.;Время установления связи  вышло.
 NetworkError;Network error.;Сетевая ошибка.
 Main;Main;Основная
 MainUDP;The main UDP group;Основная UDP группа
@@ -4203,6 +4203,7 @@ TemplateTxtSecurity;Security txt export template.;Шаблон экспорта 
 TemplateTxtNews;News txt export template.;Шаблон экспорта в txt для новостей.
 TemplateTxtBoard;Board state txt export template.;Шаблон экспорта в txt для состояния площадок.
 TemplateTxtIndicator;Indicator's value txt export template.;Шаблон экспорта в txt для значений индикатора.
+TemplateTxtPositionChange;Position change txt export template.;Шаблон экспорта в txt для изменения позиции.
 TemplateDepth;Depth template;Шаблон стаканов
 TemplateTick;Ticks template;Шаблон тиков
 TemplateCandle;Candles template;Шаблон свечей
@@ -4981,6 +4982,8 @@ FileNameFormat;File name format;Формат имени файла
 FileNameFormatDesc;File name format. For ex., 'candles_{Security.Id}_{From:yyyy_MM_dd}_{To:yyyy_MM_dd}.csv'.;Формат имени файла. Например, 'candles_{Security.Id}_{From:yyyy_MM_dd}_{To:yyyy_MM_dd}.csv'.
 MinVolume;Min volume;Мин объем
 MinVolumeDesc;Minimum volume allowed in order.;Минимальный объем, допустимый в заявке.
+MaxVolume;Max volume;Макс объем
+MaxVolumeDesc;Maximum volume allowed in order.;Максимальные объем, допустимый в заявке.
 UnderlyingMinVolume;Min volume (under);Мин объем (базов)
 UnderlyingMinVolumeDesc;Minimum volume allowed in order for underlying security.;Минимальный объем базового инструмента, допустимый в заявке.
 Shortable;Shortable;Шортовый
@@ -4989,6 +4992,7 @@ IntervalDataUpdates;The interval between data updates.;Периодичност�
 Zero;Zero;Ноль
 Connector;Connector;Коннектор
 OrderVolumeLessMin;Volume {0} of order '{1}' is less than minimum allowed {2}.;Объем {0} заявки '{1}' меньше минимально допустимого {2}.
+OrderVolumeMoreMax;Volume {0} of order '{1}' is more than maximum allowed {2}.;Объем {0} заявки '{1}' больше максимально допустимого {2}.
 ShowStrategySocket;Show strategy socket;Показывать сокет стратегии
 ShowPositionSocket;Show position socket;Показывать сокет позиции
 EncryptedSchema;Encrypted scheme;Зашифрованная схема
@@ -5133,6 +5137,24 @@ QuoteCondition;Quote condition.;Условие котировки.
 MarginSection;Margin section.;Маржинальная секция.
 PrizmBit;PrizmBit;PrizmBit
 FileHashNotMatch;Downloaded hash '{0}' not match with calculated '{1}'.;Скаченный хэш '{0}' не совпадает с расчитанным '{1}'.
+FileHash;File hash;Хэш файла
+LowBidPrice;Low bid;Мин бид
+LowBidPriceDesc;Lowest bid during the session.;Наименьший бид за сессию.
+HighAskPrice;High ask;Макс оффер
+HighAskPriceDesc;Highest ask during the session.;Наивысший оффер за сессию.
+LastTradeVolumeLow;Low trade vol;Мин объем сделки
+LastTradeVolumeLowDesc;Lowest last trade volume.;Наименьший объем сделки.
+LastTradeVolumeHigh;High trade vol;Макс объем сделки
+LastTradeVolumeHighDesc;Highest last trade volume.;Наибольший объем сделки.
+MaxSupportVersion;Max support version.;Максимальная поддерживаемая версия.
+Gaps;Gaps;Пропуски
+GapsDesc;Make gap in incremental messages for test purpose.;Сделать пропуски в инкрементальных сообщениях в тестовых целях.
+HeikinAshi;Heikin Ashi;Heikin Ashi
+SubscriptionInState;Subscription {0} in state {1} and cannot be stopped.;Подписка {0} в состоянии {1} и не может быть остановлена.
+SubscriptionNotifySubscriber;Subscription {0} notify subscriber {1}.;Подписка {0} уведомляет подписчика {1}.
+OnlineSubscriptionRemoved;Online subscription {0} removed.;Онлайн подписку {0} удалена.
+DigitexFutures;Digitex Futures;Digitex Futures
+OrdersMargin;Orders (margin);Заявки (маржа)
 DocStr0;Button activation alert settings;Кнопка активации настроек сигнала
 DocStr1;Initializes a new instance of the {0};Создать {0}
 DocStr2;Load settings;Загрузить настройки
@@ -5144,7 +5166,7 @@ DocStr7;Release resources;Освободить занятые ресурсы
 DocStr8;InitializeComponent;InitializeComponent
 DocStr9;Message type;Тип сообщения
 DocStr10;Schema change event;Событие изменения схемы
-DocStr11;Popup window for alert type {0};Всплывающее окно для типа сигнала {0}
+DocStr11;Popup window for alert type {0};Всплывающее окно для сигнала типа {0}
 DocStr12;Alert creation time;Время формирования сигнала
 DocStr13;Alert text;Текст сигнала
 DocStr14;Rule;Правило
@@ -15247,7 +15269,6 @@ DocStr10759;The price of the associated stop order (loss limit level);Цена �
 DocStr10760;The price of the associated limit order (profit limit level);Цена ассоциированной стоп заявки (уровень тейка)
 DocStr10761;Defines if the trade‘s stop/limit rate is in pips;Определяет, находится ли стоп/лимит ставка торговли в пипсах
 DocStr10762;Is composite diagram element loaded;Загружен ли составной элемент диаграммы
-DocStr10763;Max support version;Максимальная поддерживаемая версия
 DocStr10764;Whether this axis can be removed from chart area;Можно ли удалить эту ось из области графика
 DocStr10765;Proxy object to edit chart indicator element in property grid;Прокси-объект для редактирования индикатора графика в таблице свойств
 DocStr10766;Base proxy object to edit chart element in property grid;Базовый прокси-объект для редактирования элемента графика в таблице свойств
@@ -16005,3 +16026,100 @@ DocStr11609;QUIK PreTrade FIX protocol dialect;QUIK PreTrade диалект FIX 
 DocStr11610;QUIK server FIX protocol dialect;QUIK server диалект FIX протокола
 DocStr11611;Read order condition;Прочитать условие заявки
 DocStr11613;Directly update last values;Напрямую обновить последние значения
+DocStr11614;Use compression;Использовать сжатие
+DocStr11615;Check hash of downloaded files;Проверять хэш скаченных файлов
+DocStr11616;Product ID;Идентификатор продукта
+DocStr11617;To start uploading temp file to the site;Запустить загрузку временного файла на сайт
+DocStr11619;All available products;Все доступные продукты
+DocStr11620;Check on availability of the newest version;Проверить на наличие новой версии
+DocStr11621;Local files info (name and hash);Информация о локальных файлах (имя и хэш)
+DocStr11622;List of files actions. Empty array means no any updates;Список изменений файлов. Пустой список означает отсутствие обновлений
+DocStr11623;Get changes;Получить изменения
+DocStr11624;The interface describing the updates service;Интерфейс, описывающий сервис обновлений
+DocStr11625;Get all products;Получить все продукты
+DocStr11626;S#.Shell;S#.Shell
+DocStr11627;S#.MatLab;S#.MatLab
+DocStr11628;S#.Updater;S#.Updater
+DocStr11629;Part size;Размер части
+DocStr11630;S#.ЛЧИ;S#.ЛЧИ
+DocStr11631;Get product's public name;Получить публичное имя продукта
+DocStr11632;Public name;Публичное имя
+DocStr11633;Get file list and their hashes in the specified folder;Получить список файлов и их хэши в указанной директории
+DocStr11634;Path to the folder;Путь к директории
+DocStr11635;The connection access check module which provides access by simple login and password set;Модуль проверки доступа соединения, который предоставляется через простую установку логина и пароля
+DocStr11636;Remove file message (upload or download);Remove file message (upload or download)
+DocStr11637;Storage buffer;Storage buffer
+DocStr11638;Storage processor;Storage processor
+DocStr11639;Process {0};Process {0}
+DocStr11640;Start storage auto-save thread;Start storage auto-save thread
+DocStr11641;>Message type;>Message type
+DocStr11642;The message contains information about command to change state;The message contains information about command to change state
+DocStr11643;Can use {0};Can use {0}
+DocStr11644;Create instance of {0};Create instance of {0}
+DocStr11645;Instance of {0};Instance of {0}
+DocStr11646;All registered candle types;All registered candle types
+DocStr11647;Register new candle type;Register new candle type
+DocStr11648;{0} instance creator;{0} instance creator
+DocStr11649;License message;License message
+DocStr11650;License lookup message;License lookup message
+DocStr11651;License request (create, renew, delete) message;License request (create, renew, delete) message
+DocStr11652;Broker identifier;Broker identifier
+DocStr11653;License identifier;License identifier
+DocStr11654;Command types;Command types
+DocStr11655;Command scopes;Command scopes
+DocStr11656;Application;Application
+DocStr11657;Scope;Scope
+DocStr11658;Candle arg parser;Candle arg parser
+DocStr11659;Register candle style;Register candle style
+DocStr11660;Remote file command;Remote file command
+DocStr11661;Strategy server ID;Strategy server ID
+DocStr11662;Determines whether the specified news related with StockSharp;Determines whether the specified news related with StockSharp
+DocStr11663;File info message;File info message
+DocStr11664;Product check version message;Product check version message
+DocStr11665;Product info message;Product info message
+DocStr11666;Originator;Originator
+DocStr11667;Unshare;Unshare
+DocStr11668;List objects;List objects
+DocStr11669;File group;File group
+DocStr11670;StockSharp news source;StockSharp news source
+DocStr11671;Make news related with StockSharp;Make news related with StockSharp
+DocStr11672;The command for share chart as an image;The command for share chart as an image
+DocStr11673;Add news;Add news
+DocStr11674;Owner;Owner
+DocStr11675;Is file newly or updated;Is file newly or updated
+DocStr11676;Contract price;Contract price
+DocStr11677;Gap size (in messages);Gap size (in messages)
+DocStr11678;Versions;Versions
+DocStr11679;Version {0};Version {0}
+DocStr11680;{0} data type;{0} data type
+DocStr11681;Heikin ashi candle;Heikin ashi candle
+DocStr11682;The message contains information about the Heikin-Ashi candle;The message contains information about the Heikin-Ashi candle
+DocStr11683;Txt templates registry;Txt templates registry
+DocStr11684;Create item source;Create item source
+DocStr11685;Try get security ID from the specified message;Try get security ID from the specified message
+DocStr11686;Security ID or {0} if message do not provide it;Security ID or {0} if message do not provide it
+DocStr11687;Online subscription counter adapter;Online subscription counter adapter
+DocStr11688;Download securities info;Download securities info
+DocStr11689;Get hash for the specified input;Get hash for the specified input
+DocStr11690;Hash;Hash
+DocStr11691;Defines the different types of data that can be returned;Defines the different types of data that can be returned
+DocStr11692;Bid Prices;Bid Prices
+DocStr11693;Ask Prices;Ask Prices
+DocStr11694;The format the historic market data is returned in;The format the historic market data is returned in
+DocStr11695;Comma Separated Values, not a fixed format, the columns will be different according to the different types of data returned;Comma Separated Values, not a fixed format, the columns will be different according to the different types of data returned
+DocStr11696;The product type used to connect to the LMAX Trader platform;The product type used to connect to the LMAX Trader platform
+DocStr11697;The order book has been newly created;The order book has been newly created
+DocStr11698;The order book is accepting orders;The order book is accepting orders
+DocStr11699;The order book is temporarily not accepting orders;The order book is temporarily not accepting orders
+DocStr11700;The order book is closed and waiting to be opened;The order book is closed and waiting to be opened
+DocStr11701;The trades on the order book have been settled;The trades on the order book have been settled
+DocStr11702;The order book is no longer trading;The order book is no longer trading
+DocStr11703;Base implementation of {0} interface;Base implementation of {0} interface
+DocStr11704;Initial margin (buy);Initial margin (buy)
+DocStr11705;Initial margin (sell);Initial margin (sell)
+DocStr11706;Xaml extension to use themed SVG icons;Xaml extension to use themed SVG icons
+DocStr11707;Icon key;Icon key
+DocStr11708;Get icon image source;Get icon image source
+DocStr11709;The icon key;The icon key
+DocStr11710;Xaml extension to apply color to SVG icons;Xaml extension to apply color to SVG icons
+DocStr11711;New icon color;New icon color

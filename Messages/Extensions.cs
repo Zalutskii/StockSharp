@@ -17,15 +17,14 @@ namespace StockSharp.Messages
 {
 	using System;
 	using System.Collections.Generic;
-	using System.Data;
+	using System.Globalization;
 	using System.Linq;
-	using System.ServiceModel;
+	using System.Net;
 
 	using Ecng.Common;
 	using Ecng.Collections;
 	using Ecng.ComponentModel;
 	using Ecng.Localization;
-	using Ecng.Net;
 
 	using MoreLinq;
 
@@ -37,6 +36,26 @@ namespace StockSharp.Messages
 	/// </summary>
 	public static class Extensions
 	{
+		static Extensions()
+		{
+			RegisterCandleType(typeof(TimeFrameCandleMessage), MessageTypes.CandleTimeFrame, MarketDataTypes.CandleTimeFrame, str => str.Replace('-', ':').To<TimeSpan>());
+			RegisterCandleType(typeof(TickCandleMessage), MessageTypes.CandleTick, MarketDataTypes.CandleTick, str => str.To<int>());
+			RegisterCandleType(typeof(VolumeCandleMessage), MessageTypes.CandleVolume, MarketDataTypes.CandleVolume, str => str.To<decimal>());
+			RegisterCandleType(typeof(RangeCandleMessage), MessageTypes.CandleRange, MarketDataTypes.CandleRange, str => str.ToUnit());
+			RegisterCandleType(typeof(RenkoCandleMessage), MessageTypes.CandleRenko, MarketDataTypes.CandleRenko, str => str.ToUnit());
+			RegisterCandleType(typeof(PnFCandleMessage), MessageTypes.CandlePnF, MarketDataTypes.CandlePnF, str =>
+			{
+				var parts = str.Split('_');
+
+				return new PnFArg
+				{
+					BoxSize = parts[0].ToUnit(),
+					ReversalAmount = parts[1].To<int>()
+				};
+			});
+			RegisterCandleType(typeof(HeikinAshiCandleMessage), MessageTypes.CandleHeikinAshi, MarketDataTypes.CandleHeikinAshi, str => str.Replace('-', ':').To<TimeSpan>());
+		}
+
 		/// <summary>
 		/// Initializes a new instance of the <see cref="PositionChangeMessage"/>.
 		/// </summary>
@@ -131,10 +150,17 @@ namespace StockSharp.Messages
 			if (message == null)
 				throw new ArgumentNullException(nameof(message));
 
-			var bestBid = (decimal?)message.Changes.TryGetValue(Level1Fields.BestBidPrice);
-			var bestAsk = (decimal?)message.Changes.TryGetValue(Level1Fields.BestAskPrice);
+			var spreadMiddle = (decimal?)message.Changes.TryGetValue(Level1Fields.SpreadMiddle);
 
-			return bestBid.GetSpreadMiddle(bestAsk);
+			if (spreadMiddle == null)
+			{
+				var bestBid = (decimal?)message.Changes.TryGetValue(Level1Fields.BestBidPrice);
+				var bestAsk = (decimal?)message.Changes.TryGetValue(Level1Fields.BestAskPrice);
+
+				spreadMiddle = bestBid.GetSpreadMiddle(bestAsk);
+			}
+
+			return spreadMiddle;
 		}
 
 		/// <summary>
@@ -149,9 +175,20 @@ namespace StockSharp.Messages
 				return null;
 
 			if (bestBidPrice != null && bestAskPrice != null)
-				return (bestAskPrice + bestBidPrice).Value / 2;
+				return bestBidPrice.Value.GetSpreadMiddle(bestAskPrice.Value);
 
 			return bestAskPrice ?? bestBidPrice.Value;
+		}
+
+		/// <summary>
+		/// Get middle of spread.
+		/// </summary>
+		/// <param name="bestBidPrice">Best bid price.</param>
+		/// <param name="bestAskPrice">Best ask price.</param>
+		/// <returns>The middle of spread. Is <see langword="null" />, if quotes are empty.</returns>
+		public static decimal GetSpreadMiddle(this decimal bestBidPrice, decimal bestAskPrice)
+		{
+			return (bestAskPrice + bestBidPrice) / 2;
 		}
 
 		/// <summary>
@@ -184,104 +221,6 @@ namespace StockSharp.Messages
 				HasOrderInfo = true,
 			};
 		}
-
-		///// <summary>
-		///// Cast <see cref="OrderGroupCancelMessage"/> to the <see cref="ExecutionMessage"/>.
-		///// </summary>
-		///// <param name="message"><see cref="OrderGroupCancelMessage"/>.</param>
-		///// <returns><see cref="ExecutionMessage"/>.</returns>
-		//public static ExecutionMessage ToExecutionMessage(this OrderGroupCancelMessage message)
-		//{
-		//	return new ExecutionMessage
-		//	{
-		//		OriginalTransactionId = message.TransactionId,
-		//		ExecutionType = ExecutionTypes.Transaction,
-		//	};
-		//}
-
-		///// <summary>
-		///// Cast <see cref="OrderPairReplaceMessage"/> to the <see cref="ExecutionMessage"/>.
-		///// </summary>
-		///// <param name="message"><see cref="OrderPairReplaceMessage"/>.</param>
-		///// <returns><see cref="ExecutionMessage"/>.</returns>
-		//public static ExecutionMessage ToExecutionMessage(this OrderPairReplaceMessage message)
-		//{
-		//	throw new NotImplementedException();
-		//	//return new ExecutionMessage
-		//	//{
-		//	//	LocalTime = message.LocalTime,
-		//	//	OriginalTransactionId = message.TransactionId,
-		//	//	Action = ExecutionActions.Canceled,
-		//	//};
-		//}
-
-		///// <summary>
-		///// Cast <see cref="OrderCancelMessage"/> to the <see cref="ExecutionMessage"/>.
-		///// </summary>
-		///// <param name="message"><see cref="OrderCancelMessage"/>.</param>
-		///// <returns><see cref="ExecutionMessage"/>.</returns>
-		//public static ExecutionMessage ToExecutionMessage(this OrderCancelMessage message)
-		//{
-		//	return new ExecutionMessage
-		//	{
-		//		SecurityId = message.SecurityId,
-		//		OriginalTransactionId = message.TransactionId,
-		//		//OriginalTransactionId = message.OriginalTransactionId,
-		//		OrderId = message.OrderId,
-		//		OrderType = message.OrderType,
-		//		PortfolioName = message.PortfolioName,
-		//		ExecutionType = ExecutionTypes.Transaction,
-		//		UserOrderId = message.UserOrderId,
-		//		HasOrderInfo = true,
-		//	};
-		//}
-
-		///// <summary>
-		///// Cast <see cref="OrderReplaceMessage"/> to the <see cref="ExecutionMessage"/>.
-		///// </summary>
-		///// <param name="message"><see cref="OrderReplaceMessage"/>.</param>
-		///// <returns><see cref="ExecutionMessage"/>.</returns>
-		//public static ExecutionMessage ToExecutionMessage(this OrderReplaceMessage message)
-		//{
-		//	return new ExecutionMessage
-		//	{
-		//		SecurityId = message.SecurityId,
-		//		OriginalTransactionId = message.TransactionId,
-		//		OrderType = message.OrderType,
-		//		OrderPrice = message.Price,
-		//		OrderVolume = message.Volume,
-		//		Side = message.Side,
-		//		PortfolioName = message.PortfolioName,
-		//		ExecutionType = ExecutionTypes.Transaction,
-		//		Condition = message.Condition,
-		//		UserOrderId = message.UserOrderId,
-		//		HasOrderInfo = true,
-		//	};
-		//}
-
-		///// <summary>
-		///// Cast <see cref="OrderRegisterMessage"/> to the <see cref="ExecutionMessage"/>.
-		///// </summary>
-		///// <param name="message"><see cref="OrderRegisterMessage"/>.</param>
-		///// <returns><see cref="ExecutionMessage"/>.</returns>
-		//public static ExecutionMessage ToExecutionMessage(this OrderRegisterMessage message)
-		//{
-		//	return new ExecutionMessage
-		//	{
-		//		SecurityId = message.SecurityId,
-		//		OriginalTransactionId = message.TransactionId,
-		//		OrderType = message.OrderType,
-		//		OrderPrice = message.Price,
-		//		OrderVolume = message.Volume,
-		//		Balance = message.Volume,
-		//		Side = message.Side,
-		//		PortfolioName = message.PortfolioName,
-		//		ExecutionType = ExecutionTypes.Transaction,
-		//		Condition = message.Condition,
-		//		UserOrderId = message.UserOrderId,
-		//		HasOrderInfo = true,
-		//	};
-		//}
 
 		/// <summary>
 		/// Copy extended info.
@@ -494,13 +433,13 @@ namespace StockSharp.Messages
 		/// Add market data type into <see cref="IMessageAdapter.SupportedMarketDataTypes"/>.
 		/// </summary>
 		/// <param name="adapter">Adapter.</param>
-		/// <param name="type">Market data type.</param>
-		public static void AddSupportedMarketDataType(this IMessageAdapter adapter, MarketDataTypes type)
+		/// <param name="dataType">Data type info.</param>
+		public static void AddSupportedMarketDataType(this IMessageAdapter adapter, DataType dataType)
 		{
 			if (adapter == null)
 				throw new ArgumentNullException(nameof(adapter));
 
-			adapter.SupportedMarketDataTypes = adapter.SupportedMarketDataTypes.Concat(type).ToArray();
+			adapter.SupportedMarketDataTypes = adapter.SupportedMarketDataTypes.Concat(dataType).ToArray();
 		}
 
 		/// <summary>
@@ -508,7 +447,7 @@ namespace StockSharp.Messages
 		/// </summary>
 		/// <param name="adapter">Adapter.</param>
 		/// <param name="type">Market data type.</param>
-		public static void RemoveSupportedMarketDataType(this IMessageAdapter adapter, MarketDataTypes type)
+		public static void RemoveSupportedMarketDataType(this IMessageAdapter adapter, DataType type)
 		{
 			if (adapter == null)
 				throw new ArgumentNullException(nameof(adapter));
@@ -596,15 +535,7 @@ namespace StockSharp.Messages
 			return adapter.SupportedOutMessages.Contains(type);
 		}
 
-		private static readonly PairSet<MessageTypes, MarketDataTypes> _candleDataTypes = new PairSet<MessageTypes, MarketDataTypes>
-		{
-			{ MessageTypes.CandleTimeFrame, MarketDataTypes.CandleTimeFrame },
-			{ MessageTypes.CandleTick, MarketDataTypes.CandleTick },
-			{ MessageTypes.CandleVolume, MarketDataTypes.CandleVolume },
-			{ MessageTypes.CandleRange, MarketDataTypes.CandleRange },
-			{ MessageTypes.CandlePnF, MarketDataTypes.CandlePnF },
-			{ MessageTypes.CandleRenko, MarketDataTypes.CandleRenko },
-		};
+		private static readonly SynchronizedPairSet<MessageTypes, MarketDataTypes> _candleDataTypes = new SynchronizedPairSet<MessageTypes, MarketDataTypes>();
 
 		/// <summary>
 		/// Determine the <paramref name="type"/> is candle data type.
@@ -612,9 +543,15 @@ namespace StockSharp.Messages
 		/// <param name="type">The data type.</param>
 		/// <returns><see langword="true" />, if data type is candle, otherwise, <see langword="false" />.</returns>
 		public static bool IsCandleDataType(this MarketDataTypes type)
-		{
-			return _candleDataTypes.ContainsValue(type);
-		}
+			=> _candleDataTypes.ContainsValue(type);
+
+		/// <summary>
+		/// Determine the <paramref name="type"/> is candle data type.
+		/// </summary>
+		/// <param name="type">Message type.</param>
+		/// <returns><see langword="true" />, if data type is candle, otherwise, <see langword="false" />.</returns>
+		public static bool IsCandle(this MessageTypes type)
+			=> _candleDataTypes.ContainsKey(type);
 
 		/// <summary>
 		/// To convert the type of candles <see cref="MarketDataTypes"/> into type of message <see cref="MessageTypes"/>.
@@ -636,15 +573,55 @@ namespace StockSharp.Messages
 			return _candleDataTypes[type];
 		}
 
-		private static readonly PairSet<Type, MarketDataTypes> _candleMarketDataTypes = new PairSet<Type, MarketDataTypes>
+		private static readonly SynchronizedPairSet<Type, Func<string, object>> _candleArgParsers = new SynchronizedPairSet<Type, Func<string, object>>();
+
+		/// <summary>
+		/// To convert string representation of the candle argument into typified.
+		/// </summary>
+		/// <param name="messageType">The type of candle message.</param>
+		/// <param name="str">The string representation of the argument.</param>
+		/// <returns>Argument.</returns>
+		public static object ToCandleArg(this Type messageType, string str)
 		{
-			{ typeof(TimeFrameCandleMessage), MarketDataTypes.CandleTimeFrame },
-			{ typeof(TickCandleMessage), MarketDataTypes.CandleTick },
-			{ typeof(VolumeCandleMessage), MarketDataTypes.CandleVolume },
-			{ typeof(RangeCandleMessage), MarketDataTypes.CandleRange },
-			{ typeof(PnFCandleMessage), MarketDataTypes.CandlePnF },
-			{ typeof(RenkoCandleMessage), MarketDataTypes.CandleRenko },
-		};
+			if (messageType == null)
+				throw new ArgumentNullException(nameof(messageType));
+
+			if (str.IsEmpty())
+				throw new ArgumentNullException(nameof(str));
+
+			if (_candleArgParsers.TryGetValue(messageType, out var parser))
+				return parser(str);
+
+			throw new ArgumentOutOfRangeException(nameof(messageType), messageType, LocalizedStrings.WrongCandleType);
+		}
+
+		private static readonly CachedSynchronizedPairSet<Type, MarketDataTypes> _candleMarketDataTypes = new CachedSynchronizedPairSet<Type, MarketDataTypes>();
+
+		/// <summary>
+		/// All registered candle types.
+		/// </summary>
+		public static IEnumerable<Type> AllCandleTypes => _candleMarketDataTypes.CachedKeys;
+
+		/// <summary>
+		/// Register new candle type.
+		/// </summary>
+		/// <param name="messageType">The type of candle message.</param>
+		/// <param name="type">Message type.</param>
+		/// <param name="dataType">Candles type.</param>
+		/// <param name="argParser">Candle arg parser.</param>
+		public static void RegisterCandleType(Type messageType, MessageTypes type, MarketDataTypes dataType, Func<string, object> argParser)
+		{
+			if (messageType == null)
+				throw new ArgumentNullException(nameof(messageType));
+
+			if (argParser == null)
+				throw new ArgumentNullException(nameof(argParser));
+
+			_messageTypeMap.Add(dataType, Tuple.Create(type, default(object)));
+			_candleDataTypes.Add(type, dataType);
+			_candleMarketDataTypes.Add(messageType, dataType);
+			_candleArgParsers.Add(messageType, argParser);
+		}
 
 		/// <summary>
 		/// Cast candle type <see cref="MarketDataTypes"/> to the message <see cref="CandleMessage"/>.
@@ -691,7 +668,7 @@ namespace StockSharp.Messages
 			if (subscription == null)
 				throw new ArgumentNullException(nameof(subscription));
 
-			if (!adapter.SupportedMarketDataTypes.Contains(subscription.DataType))
+			if (!adapter.SupportedMarketDataTypes.Contains(subscription.ToDataType()))
 				return false;
 
 			var args = adapter.GetCandleArgs(subscription.DataType.ToCandleMessage(), subscription.SecurityId, subscription.From, subscription.To).ToArray();
@@ -734,7 +711,7 @@ namespace StockSharp.Messages
 		/// <summary>
 		/// Convert <see cref="MarketDataMessage"/> to <see cref="DataType"/> value.
 		/// </summary>
-		/// <param name="message"> Market-data message (uses as a subscribe/unsubscribe in outgoing case, confirmation event in incoming case).</param>
+		/// <param name="message">Market-data message (uses as a subscribe/unsubscribe in outgoing case, confirmation event in incoming case).</param>
 		/// <returns>Data type info.</returns>
 		public static DataType ToDataType(this MarketDataMessage message)
 		{
@@ -742,6 +719,66 @@ namespace StockSharp.Messages
 				throw new ArgumentNullException(nameof(message));
 
 			return message.DataType.ToDataType(message.Arg);
+		}
+
+		private static readonly SynchronizedPairSet<MarketDataTypes, Tuple<MessageTypes, object>> _messageTypeMap = new SynchronizedPairSet<MarketDataTypes, Tuple<MessageTypes, object>>
+		{
+			{ MarketDataTypes.Level1, Tuple.Create(MessageTypes.Level1Change, default(object)) },
+			{ MarketDataTypes.MarketDepth, Tuple.Create(MessageTypes.QuoteChange, default(object)) },
+			{ MarketDataTypes.Trades, Tuple.Create(MessageTypes.Execution, (object)ExecutionTypes.Tick) },
+			{ MarketDataTypes.OrderLog, Tuple.Create(MessageTypes.Execution, (object)ExecutionTypes.OrderLog) },
+			{ MarketDataTypes.News, Tuple.Create(MessageTypes.News, default(object)) },
+			{ MarketDataTypes.Board, Tuple.Create(MessageTypes.Board, default(object)) },
+		};
+
+		/// <summary>
+		/// Convert <see cref="MarketDataTypes"/> to <see cref="MessageTypes"/> value.
+		/// </summary>
+		/// <param name="type">Message type.</param>
+		/// <param name="arg">The additional argument, associated with data. For example, candle argument.</param>
+		/// <returns>Market data type.</returns>
+		public static MarketDataTypes ToMarketDataType(this MessageTypes type, object arg)
+		{
+			if (_messageTypeMap.TryGetKey(Tuple.Create(type, arg), out var dataType))
+				return dataType;
+
+			throw new ArgumentOutOfRangeException(nameof(type), type, LocalizedStrings.Str1219);
+		}
+
+		/// <summary>
+		/// Convert <see cref="MarketDataTypes"/> to <see cref="MessageTypes"/> value.
+		/// </summary>
+		/// <param name="type">Market data type.</param>
+		/// <param name="arg">The additional argument, associated with data. For example, candle argument.</param>
+		/// <returns>Message type.</returns>
+		public static MessageTypes ToMessageType(this MarketDataTypes type, out object arg)
+		{
+			arg = null;
+
+			switch (type)
+			{
+				case MarketDataTypes.Level1:
+					return MessageTypes.Level1Change;
+				case MarketDataTypes.MarketDepth:
+					return MessageTypes.QuoteChange;
+				case MarketDataTypes.Trades:
+					arg = ExecutionTypes.Tick;
+					return MessageTypes.Execution;
+				case MarketDataTypes.OrderLog:
+					arg = ExecutionTypes.OrderLog;
+					return MessageTypes.Execution;
+				case MarketDataTypes.News:
+					return MessageTypes.News;
+				case MarketDataTypes.Board:
+					return MessageTypes.Board;
+				default:
+				{
+					if (type.IsCandleDataType())
+						return type.ToCandleMessageType();
+
+					throw new ArgumentOutOfRangeException(nameof(type), type, LocalizedStrings.Str1219);
+				}
+			}
 		}
 
 		/// <summary>
@@ -752,30 +789,7 @@ namespace StockSharp.Messages
 		/// <returns>Data type info.</returns>
 		public static DataType ToDataType(this MarketDataTypes type, object arg)
 		{
-			switch (type)
-			{
-				case MarketDataTypes.Level1:
-					return DataType.Level1;
-				case MarketDataTypes.MarketDepth:
-					return DataType.MarketDepth;
-				case MarketDataTypes.Trades:
-					return DataType.Ticks;
-				case MarketDataTypes.OrderLog:
-					return DataType.OrderLog;
-				case MarketDataTypes.News:
-					return DataType.News;
-				case MarketDataTypes.Board:
-					return DataType.Board;
-				case MarketDataTypes.CandleTimeFrame:
-				case MarketDataTypes.CandleTick:
-				case MarketDataTypes.CandleVolume:
-				case MarketDataTypes.CandleRange:
-				case MarketDataTypes.CandlePnF:
-				case MarketDataTypes.CandleRenko:
-					return DataType.Create(type.ToCandleMessage(), arg);
-				default:
-					throw new ArgumentOutOfRangeException(nameof(type), type, LocalizedStrings.Str1219);
-			}
+			return type.ToMessageType(out var arg2).ToDataType(arg2 ?? arg);
 		}
 
 		/// <summary>
@@ -797,14 +811,6 @@ namespace StockSharp.Messages
 				case MessageTypes.Portfolio:
 				case MessageTypes.PositionChange:
 					return DataType.PositionChanges;
-
-				case MessageTypes.CandleTimeFrame:
-				case MessageTypes.CandlePnF:
-				case MessageTypes.CandleRange:
-				case MessageTypes.CandleRenko:
-				case MessageTypes.CandleTick:
-				case MessageTypes.CandleVolume:
-					return type.ToCandleMarketDataType().ToDataType(arg);
 
 				case MessageTypes.News:
 					return DataType.News;
@@ -828,7 +834,12 @@ namespace StockSharp.Messages
 					return DataType.Users;
 
 				default:
+				{
+					if (type.IsCandle())
+						return DataType.Create(type.ToCandleMarketDataType().ToCandleMessage(), arg);
+
 					throw new ArgumentOutOfRangeException(nameof(type), type, LocalizedStrings.Str1219);
+				}
 			}
 		}
 
@@ -886,7 +897,7 @@ namespace StockSharp.Messages
 		/// <param name="adapter">Adapter.</param>
 		/// <param name="type">Message type.</param>
 		/// <returns><see langword="true"/> if the specified message type is supported, otherwise, <see langword="false"/>.</returns>
-		public static bool IsMarketDataTypeSupported(this IMessageAdapter adapter, MarketDataTypes type)
+		public static bool IsMarketDataTypeSupported(this IMessageAdapter adapter, DataType type)
 		{
 			if (adapter == null)
 				throw new ArgumentNullException(nameof(adapter));
@@ -903,7 +914,7 @@ namespace StockSharp.Messages
 			if (adapter == null)
 				throw new ArgumentNullException(nameof(adapter));
 
-			adapter.SupportedMarketDataTypes = ArrayHelper.Empty<MarketDataTypes>();
+			adapter.SupportedMarketDataTypes = ArrayHelper.Empty<DataType>();
 		}
 
 		/// <summary>
@@ -971,9 +982,6 @@ namespace StockSharp.Messages
 			return new ErrorMessage { Error = error };
 		}
 
-		private static readonly ChannelFactory<IDailyInfoSoap> _dailyInfoFactory = new ChannelFactory<IDailyInfoSoap>(new BasicHttpBinding(), new EndpointAddress("http://www.cbr.ru/dailyinfowebserv/dailyinfo.asmx"));
-		private static readonly Dictionary<DateTime, Dictionary<CurrencyTypes, decimal>> _rateInfo = new Dictionary<DateTime, Dictionary<CurrencyTypes, decimal>>();
-
 		/// <summary>
 		/// To convert one currency to another.
 		/// </summary>
@@ -1011,24 +1019,8 @@ namespace StockSharp.Messages
 			if (from == to)
 				return 1;
 
-			var info = _rateInfo.SafeAdd(date, key =>
-			{
-				var i = _dailyInfoFactory.Invoke(c => c.GetCursOnDate(key));
-				return i.Tables[0].Rows.Cast<DataRow>().ToDictionary(r => r[4].To<CurrencyTypes>(), r => r[2].To<decimal>());
-			});
-
-			if (from != CurrencyTypes.RUB && !info.ContainsKey(from))
-				throw new ArgumentException(LocalizedStrings.Str1212Params.Put(from), nameof(from));
-
-			if (to != CurrencyTypes.RUB && !info.ContainsKey(to))
-				throw new ArgumentException(LocalizedStrings.Str1212Params.Put(to), nameof(to));
-
-			if (from == CurrencyTypes.RUB)
-				return 1 / info[to];
-			else if (to == CurrencyTypes.RUB)
-				return info[from];
-			else
-				return info[from] / info[to];
+			using (var client = new WebClient())
+				return decimal.Parse(client.DownloadString($"https://stocksharp.com/services/currencyconverter.ashx?from={from}&to={to}&date={(long)date.ToUnix()}"), CultureInfo.InvariantCulture);
 		}
 
 		/// <summary>
@@ -1931,6 +1923,24 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
+		/// Try get security ID from the specified message.
+		/// </summary>
+		/// <param name="message">Message.</param>
+		/// <returns>Security ID or <see langword="null"/> if message do not provide it.</returns>
+		public static SecurityId? TryGetSecurityId(this Message message)
+		{
+			switch (message)
+			{
+				case ISecurityIdMessage secIdMsg:
+					return secIdMsg.SecurityId;
+				case INullableSecurityIdMessage nullSecIdMsg:
+					return nullSecIdMsg.SecurityId;
+				default:
+					return null;
+			}
+		}
+
+		/// <summary>
 		/// Replace security id by the specified.
 		/// </summary>
 		/// <param name="message">Message.</param>
@@ -2084,12 +2094,15 @@ namespace StockSharp.Messages
 		/// <summary>
 		/// Get maximum size step allowed for historical download.
 		/// </summary>
+		/// <param name="adapter">Trading system adapter.</param>
 		/// <param name="dataType">Data type info.</param>
-		/// <param name="supportedMarketDataTypes">Supported by adapter market data types.</param>
 		/// <param name="iterationInterval">Interval between iterations.</param>
 		/// <returns>Step.</returns>
-		public static TimeSpan GetHistoryStepSize(this DataType dataType, IEnumerable<MarketDataTypes> supportedMarketDataTypes, out TimeSpan iterationInterval)
+		public static TimeSpan GetHistoryStepSize(this IMessageAdapter adapter, DataType dataType, out TimeSpan iterationInterval)
 		{
+			if (adapter == null)
+				throw new ArgumentNullException(nameof(adapter));
+
 			if (dataType == null)
 				throw new ArgumentNullException(nameof(dataType));
 
@@ -2097,15 +2110,25 @@ namespace StockSharp.Messages
 
 			if (dataType.IsCandles)
 			{
-				if (!supportedMarketDataTypes.Contains(dataType.ToMarketDataType().Value))
+				var supportedCandles = adapter.SupportedMarketDataTypes.FirstOrDefault(d => d.MessageType == dataType.MessageType);
+
+				if (supportedCandles == null)
 					return TimeSpan.Zero;
 
 				if (dataType.MessageType == typeof(TimeFrameCandleMessage))
 				{
 					var tf = (TimeSpan)dataType.Arg;
 
+					if (!adapter.CheckTimeFrameByRequest && !adapter.GetTimeFrames().Contains(tf))
+						return TimeSpan.Zero;
+
 					if (tf.TotalDays <= 1)
+					{
+						if (tf.TotalMinutes < 0.1)
+							return TimeSpan.FromHours(0.5);
+
 						return TimeSpan.FromDays(30);
+					}
 
 					return TimeSpan.MaxValue;
 				}
@@ -2139,6 +2162,41 @@ namespace StockSharp.Messages
 				dataType == DataType.TimeFrames ||
 				dataType == DataType.Users ||
 				dataType == DataType.Transactions;
+		}
+
+		/// <summary>
+		/// StockSharp news source.
+		/// </summary>
+		public const string NewsStockSharpSource = nameof(StockSharp);
+
+		/// <summary>
+		/// Determines whether the specified news related with StockSharp.
+		/// </summary>
+		/// <param name="news">News.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsStockSharp(this NewsMessage news)
+		{
+			if (news == null)
+				throw new ArgumentNullException(nameof(news));
+
+			return news.Source.CompareIgnoreCase(NewsStockSharpSource);
+		}
+
+		/// <summary>
+		/// Make news related with StockSharp.
+		/// </summary>
+		/// <param name="news">News.</param>
+		/// <returns>News.</returns>
+		public static NewsMessage MakeAsStockSharp(this NewsMessage news)
+		{
+			if (news == null)
+				throw new ArgumentNullException(nameof(news));
+
+			if (!news.Story.IsEmpty())
+				throw new ArgumentException(nameof(news));
+
+			news.Story = NewsStockSharpSource;
+			return news;
 		}
 	}
 }

@@ -130,6 +130,7 @@ P:StockSharp.BusinessEntities.Exchange.CoinHub/summary;DocStr11334
 P:StockSharp.BusinessEntities.Exchange.Hotbit/summary;DocStr11334
 P:StockSharp.BusinessEntities.Exchange.Bitalong/summary;DocStr11334
 P:StockSharp.BusinessEntities.Exchange.PrizmBit/summary;DocStr11334
+P:StockSharp.BusinessEntities.Exchange.DigitexFutures/summary;DocStr11334
 T:StockSharp.BusinessEntities.ExchangeBoard/summary;DocStr2692
 M:StockSharp.BusinessEntities.ExchangeBoard.EnumerateExchanges/summary;DocStr2693
 M:StockSharp.BusinessEntities.ExchangeBoard.EnumerateExchanges/returns;DocStr2694
@@ -371,6 +372,7 @@ P:StockSharp.BusinessEntities.ExchangeBoard.CoinHub/summary;DocStr2809
 P:StockSharp.BusinessEntities.ExchangeBoard.Hotbit/summary;DocStr2809
 P:StockSharp.BusinessEntities.ExchangeBoard.Bitalong/summary;DocStr2809
 P:StockSharp.BusinessEntities.ExchangeBoard.PrizmBit/summary;DocStr2809
+P:StockSharp.BusinessEntities.ExchangeBoard.DigitexFutures/summary;DocStr2809
 T:StockSharp.BusinessEntities.IConnector/summary;DocStr2825
 E:StockSharp.BusinessEntities.IConnector.NewMyTrades/summary;DocStr867
 E:StockSharp.BusinessEntities.IConnector.NewTrades/summary;DocStr868
@@ -771,6 +773,7 @@ P:StockSharp.BusinessEntities.News.Url/summary;Str222
 P:StockSharp.BusinessEntities.News.Priority/summary;NewsPriority
 P:StockSharp.BusinessEntities.News.ExtensionInfo/inheritdoc;DocStr8459
 P:StockSharp.BusinessEntities.News.Language/summary;Str3429
+P:StockSharp.BusinessEntities.News.ExpiryDate/summary;ExpiryDate
 M:StockSharp.BusinessEntities.News.ToString/inheritdoc;DocStr8459
 T:StockSharp.BusinessEntities.Order/summary;Str504
 M:StockSharp.BusinessEntities.Order.#ctor/summary;DocStr1
@@ -868,6 +871,13 @@ P:StockSharp.BusinessEntities.Position.LimitType/summary;DocStr2934
 P:StockSharp.BusinessEntities.Position.Leverage/summary;Str261
 P:StockSharp.BusinessEntities.Position.CommissionTaker/summary;CommissionTaker
 P:StockSharp.BusinessEntities.Position.CommissionMaker/summary;CommissionMaker
+P:StockSharp.BusinessEntities.Position.BuyOrdersCount/summary;OrdersBids
+P:StockSharp.BusinessEntities.Position.SellOrdersCount/summary;OrdersAsks
+P:StockSharp.BusinessEntities.Position.BuyOrdersMargin/summary;Str304
+P:StockSharp.BusinessEntities.Position.SellOrdersMargin/summary;Str305
+P:StockSharp.BusinessEntities.Position.OrdersMargin/summary;OrdersMargin
+P:StockSharp.BusinessEntities.Position.OrdersCount/summary;Orders
+P:StockSharp.BusinessEntities.Position.TradesCount/summary;Str985
 M:StockSharp.BusinessEntities.Position.Clone/summary;DocStr643
 M:StockSharp.BusinessEntities.Position.Clone/returns;DocStr1116
 M:StockSharp.BusinessEntities.Position.CopyTo(StockSharp.BusinessEntities.Position)/summary;DocStr2615
@@ -906,6 +916,7 @@ P:StockSharp.BusinessEntities.Security.Class/summary;SecurityClass
 P:StockSharp.BusinessEntities.Security.PriceStep/summary;Str306
 P:StockSharp.BusinessEntities.Security.VolumeStep/summary;Str307
 P:StockSharp.BusinessEntities.Security.MinVolume/summary;MinVolumeDesc
+P:StockSharp.BusinessEntities.Security.MaxVolume/summary;MaxVolumeDesc
 P:StockSharp.BusinessEntities.Security.Multiplier/summary;DocStr2623
 P:StockSharp.BusinessEntities.Security.Decimals/summary;Str548
 P:StockSharp.BusinessEntities.Security.ExpiryDate/summary;Str371

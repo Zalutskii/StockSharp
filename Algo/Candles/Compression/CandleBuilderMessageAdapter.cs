@@ -93,7 +93,7 @@ namespace StockSharp.Algo.Candles.Compression
 				{
 					var mdMsg = (MarketDataMessage)message;
 
-					if (!_candleBuilderProvider.IsRegistered(mdMsg.DataType))
+					if (!_candleBuilderProvider.IsRegistered(mdMsg.ToDataType().MessageType))
 						break;
 
 					var transactionId = mdMsg.TransactionId;
@@ -172,7 +172,7 @@ namespace StockSharp.Algo.Candles.Compression
 										_series.Add(transactionId, new SeriesInfo(original, current)
 										{
 											State = SeriesStates.SmallTimeFrame,
-											BigTimeFrameCompressor = new BiggerTimeFrameCandleCompressor(original, (TimeFrameCandleBuilder)_candleBuilderProvider.Get(MarketDataTypes.CandleTimeFrame)),
+											BigTimeFrameCompressor = new BiggerTimeFrameCandleCompressor(original, (TimeFrameCandleBuilder)_candleBuilderProvider.Get(typeof(TimeFrameCandleMessage))),
 											LastTime = original.From,
 										});
 									}
@@ -416,96 +416,6 @@ namespace StockSharp.Algo.Candles.Compression
 					break;
 				}
 
-				case MessageTypes.CandleTimeFrame:
-				{
-					var candle = (CandleMessage)message;
-
-					var subscriptionIds = candle.GetSubscriptionIds();
-					HashSet<long> newSubscriptionIds = null;
-
-					foreach (var subscriptionId in subscriptionIds)
-					{
-						var series = TryGetSeries(subscriptionId, out _);
-
-						if (series == null)
-							continue;
-
-						if (newSubscriptionIds == null)
-							newSubscriptionIds = new HashSet<long>(subscriptionIds);
-
-						newSubscriptionIds.Remove(subscriptionId);
-
-						switch (series.State)
-						{
-							case SeriesStates.Regular:
-								ProcessCandle(series, candle);
-								break;
-
-							case SeriesStates.SmallTimeFrame:
-								var candles = series.BigTimeFrameCompressor.Process(candle).Where(c => c.State == CandleStates.Finished);
-
-								foreach (var bigCandle in candles)
-								{
-									bigCandle.OriginalTransactionId = series.Id;
-									bigCandle.Adapter = candle.Adapter;
-									series.LastTime = bigCandle.CloseTime;
-									base.OnInnerAdapterNewOutMessage(bigCandle);
-								}
-
-								break;
-
-							// TODO default
-						}
-					}
-
-					if (newSubscriptionIds != null)
-					{
-						if (newSubscriptionIds.Count == 0)
-							return;
-
-						candle.SetSubscriptionIds(newSubscriptionIds.ToArray());
-					}
-					
-					break;
-				}
-
-				case MessageTypes.CandlePnF:
-				case MessageTypes.CandleRange:
-				case MessageTypes.CandleRenko:
-				case MessageTypes.CandleTick:
-				case MessageTypes.CandleVolume:
-				{
-					var candle = (CandleMessage)message;
-
-					var subscriptionIds = candle.GetSubscriptionIds();
-					HashSet<long> newSubscriptionIds = null;
-
-					foreach (var subscriptionId in subscriptionIds)
-					{
-						var series = TryGetSeries(subscriptionId, out _);
-
-						if (series == null)
-							continue;
-
-						if (newSubscriptionIds == null)
-							newSubscriptionIds = new HashSet<long>(subscriptionIds);
-
-						newSubscriptionIds.Remove(subscriptionId);
-
-						ProcessCandle(series, candle);	
-					}
-
-					if (newSubscriptionIds != null)
-					{
-						if (newSubscriptionIds.Count == 0)
-							return;
-
-						candle.SetSubscriptionIds(newSubscriptionIds.ToArray());
-					}
-					
-					break;
-				}
-
 				case MessageTypes.Execution:
 				case MessageTypes.QuoteChange:
 				case MessageTypes.Level1Change:
@@ -517,6 +427,91 @@ namespace StockSharp.Algo.Candles.Compression
 
 					if (ProcessValue(subscrMsg))
 						return;
+
+					break;
+				}
+
+				default:
+				{
+					if (message is CandleMessage candleMsg)
+					{
+						if (candleMsg.Type == MessageTypes.CandleTimeFrame)
+						{
+							var subscriptionIds = candleMsg.GetSubscriptionIds();
+							HashSet<long> newSubscriptionIds = null;
+
+							foreach (var subscriptionId in subscriptionIds)
+							{
+								var series = TryGetSeries(subscriptionId, out _);
+
+								if (series == null)
+									continue;
+
+								if (newSubscriptionIds == null)
+									newSubscriptionIds = new HashSet<long>(subscriptionIds);
+
+								newSubscriptionIds.Remove(subscriptionId);
+
+								switch (series.State)
+								{
+									case SeriesStates.Regular:
+										ProcessCandle(series, candleMsg);
+										break;
+
+									case SeriesStates.SmallTimeFrame:
+										var candles = series.BigTimeFrameCompressor.Process(candleMsg).Where(c => c.State == CandleStates.Finished);
+
+										foreach (var bigCandle in candles)
+										{
+											bigCandle.OriginalTransactionId = series.Id;
+											bigCandle.Adapter = candleMsg.Adapter;
+											series.LastTime = bigCandle.CloseTime;
+											base.OnInnerAdapterNewOutMessage(bigCandle);
+										}
+
+										break;
+
+									// TODO default
+								}
+							}
+
+							if (newSubscriptionIds != null)
+							{
+								if (newSubscriptionIds.Count == 0)
+									return;
+
+								candleMsg.SetSubscriptionIds(newSubscriptionIds.ToArray());
+							}
+						}
+						else
+						{
+							var subscriptionIds = candleMsg.GetSubscriptionIds();
+							HashSet<long> newSubscriptionIds = null;
+
+							foreach (var subscriptionId in subscriptionIds)
+							{
+								var series = TryGetSeries(subscriptionId, out _);
+
+								if (series == null)
+									continue;
+
+								if (newSubscriptionIds == null)
+									newSubscriptionIds = new HashSet<long>(subscriptionIds);
+
+								newSubscriptionIds.Remove(subscriptionId);
+
+								ProcessCandle(series, candleMsg);	
+							}
+
+							if (newSubscriptionIds != null)
+							{
+								if (newSubscriptionIds.Count == 0)
+									return;
+
+								candleMsg.SetSubscriptionIds(newSubscriptionIds.ToArray());
+							}
+						}
+					}
 
 					break;
 				}
@@ -579,7 +574,7 @@ namespace StockSharp.Algo.Candles.Compression
 							series.Current.Arg = smaller;
 							series.Current.TransactionId = TransactionIdGenerator.GetNextId();
 
-							series.BigTimeFrameCompressor = new BiggerTimeFrameCandleCompressor(original, (TimeFrameCandleBuilder)_candleBuilderProvider.Get(MarketDataTypes.CandleTimeFrame));
+							series.BigTimeFrameCompressor = new BiggerTimeFrameCandleCompressor(original, (TimeFrameCandleBuilder)_candleBuilderProvider.Get(typeof(TimeFrameCandleMessage)));
 							series.State = SeriesStates.SmallTimeFrame;
 							series.NonFinishedCandle = null;
 
@@ -713,7 +708,7 @@ namespace StockSharp.Algo.Candles.Compression
 
 				series.LastTime = time;
 
-				var builder = _candleBuilderProvider.Get(origin.DataType);
+				var builder = _candleBuilderProvider.Get(origin.ToDataType().MessageType);
 
 				var result = builder.Process(origin, series.CurrentCandleMessage, transform);
 

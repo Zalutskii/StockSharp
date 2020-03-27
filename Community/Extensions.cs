@@ -2,29 +2,38 @@ namespace StockSharp.Community
 {
 	using System;
 	using System.Collections.Generic;
+	using System.IO;
 	using System.Linq;
 
+	using Ecng.Common;
+	using Ecng.Security;
+
+	using StockSharp.Community.Messages;
+
 	/// <summary>
-	/// Extensions.
+	/// Extensions for <see cref="Community"/>.
 	/// </summary>
 	public static class Extensions
 	{
-		private static readonly Dictionary<Products, ProductData> _productsMapping = new Dictionary<Products, ProductData>
+		private static readonly Dictionary<Products, ProductInfoMessage> _productsMapping = new Dictionary<Products, ProductInfoMessage>
 		{
-			{ Products.Api, new ProductData { Id = 5, Name = "S#.API" } },
-			{ Products.Designer, new ProductData { Id = 9, Name = "S#.Designer" } },
-			{ Products.Hydra, new ProductData { Id = 8, Name = "S#.Data" } },
-			{ Products.Terminal, new ProductData { Id = 10, Name = "S#.Terminal" } },
-			{ Products.Server, new ProductData { Id = 14, Name = "S#.Server" } },
-			{ Products.Studio, new ProductData { Id = 7, Name = "S#.Studio" } },
+			{ Products.Api, new ProductInfoMessage { Id = 5, Name = "S#.API" } },
+			{ Products.Hydra, new ProductInfoMessage { Id = 8, Name = "S#.Data" } },
+			{ Products.Designer, new ProductInfoMessage { Id = 9, Name = "S#.Designer" } },
+			{ Products.Terminal, new ProductInfoMessage { Id = 10, Name = "S#.Terminal" } },
+			{ Products.Shell, new ProductInfoMessage { Id = 11, Name = "S#.Shell" } },
+			{ Products.MatLab, new ProductInfoMessage { Id = 12, Name = "S#.MatLab" } },
+			{ Products.Lci, new ProductInfoMessage { Id = 13, Name = "S#.Ë×È" } },
+			{ Products.Server, new ProductInfoMessage { Id = 14, Name = "S#.Server" } },
+			{ Products.Updater, new ProductInfoMessage { Id = 16, Name = "S#.Updater" } },
 		};
 
 		/// <summary>
-		/// Convert <see cref="ProductData"/> to <see cref="Products"/> value.
+		/// Convert <see cref="ProductInfoMessage"/> to <see cref="Products"/> value.
 		/// </summary>
-		/// <param name="product"><see cref="ProductData"/> value.</param>
+		/// <param name="product"><see cref="ProductInfoMessage"/> value.</param>
 		/// <returns><see cref="Products"/> value.</returns>
-		public static Products ToEnum(this ProductData product)
+		public static Products ToEnum(this ProductInfoMessage product)
 		{
 			if (product == null)
 				throw new ArgumentNullException(nameof(product));
@@ -33,13 +42,57 @@ namespace StockSharp.Community
 		}
 
 		/// <summary>
-		/// Convert <see cref="Products"/> to <see cref="ProductData"/> value.
+		/// Convert <see cref="Products"/> to <see cref="ProductInfoMessage"/> value.
 		/// </summary>
 		/// <param name="product"><see cref="Products"/> value.</param>
-		/// <returns><see cref="ProductData"/> value.</returns>
-		public static ProductData FromEnum(this Products product)
+		/// <returns><see cref="ProductInfoMessage"/> value.</returns>
+		public static ProductInfoMessage FromEnum(this Products product)
 		{
 			return _productsMapping[product];
 		}
+
+		/// <summary>
+		/// Get product's public name.
+		/// </summary>
+		/// <param name="product">Product.</param>
+		/// <returns>Public name.</returns>
+		public static string GetPublicName(this ProductInfoMessage product)
+		{
+			if (product == null)
+				throw new ArgumentNullException(nameof(product));
+
+			var name = product.Name.Remove("S#.", true);
+
+			if (name.CompareIgnoreCase("Data"))
+				name = "Hydra";
+
+			return name;
+		}
+
+		/// <summary>
+		/// Get file list and their hashes in the specified folder.
+		/// </summary>
+		/// <param name="path">Path to the folder.</param>
+		/// <returns>File list.</returns>
+		public static Tuple<string, string>[] GetLocalFiles(string path)
+		{
+			var localFiles = Directory.GetFiles(path, "*.*", SearchOption.AllDirectories);
+			return localFiles.Select(f =>
+			{
+				var name = f.Remove(path);
+
+				if (name[0] == '\\')
+					name = name.Substring(1);
+
+				return Tuple.Create(name, File.ReadAllBytes(f).Hash());
+			}).ToArray();
+		}
+
+		/// <summary>
+		/// Get hash for the specified input.
+		/// </summary>
+		/// <param name="input">Input.</param>
+		/// <returns>Hash.</returns>
+		public static string Hash(this byte[] input) => input.Md5();
 	}
 }

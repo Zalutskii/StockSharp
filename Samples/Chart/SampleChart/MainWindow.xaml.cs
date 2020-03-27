@@ -21,6 +21,7 @@
 	using Ecng.Configuration;
 	using Ecng.Xaml;
 	using Ecng.Xaml.Charting.Visuals.Annotations;
+	using Ecng.Xaml.DevExp.Yandex;
 
 	using StockSharp.Algo;
 	using StockSharp.Algo.Candles;
@@ -126,9 +127,9 @@
 				MessageBox.Show($"RegisterOrder: sec={order.Security.Id}, {order.Direction} {order.Volume}@{order.Price}");
 			};
 
-			ConfigManager.RegisterService<IBackupService>(new YandexDiskService());
+			ConfigManager.RegisterService<IBackupService>(new YandexDiskService(YandexLoginWindow.Authorize(this)));
 
-			HistoryPath.Folder = @"..\..\..\..\Testing\HistoryData\".ToFullPath();
+			HistoryPath.Folder = @"..\..\..\..\..\Testing\HistoryData\".ToFullPath();
 
 			Chart.SecurityProvider = _securityProvider;
 
@@ -268,7 +269,7 @@
 			_holder.CreateCandleSeries(_transactionId, series);
 
 			_candleTransform.Process(new ResetMessage());
-			_candleBuilder = _builderProvider.Get(msgType.ToCandleMarketDataType());
+			_candleBuilder = _builderProvider.Get(msgType);
 
 			var storage = new StorageRegistry();
 
@@ -715,7 +716,7 @@
 			}
 		}
 
-		class TestMarketDataProvider : IMarketDataProviderEx
+		private class TestMarketDataProvider : IMarketDataProviderEx
 		{
 			public event Action<Security, IEnumerable<KeyValuePair<Level1Fields, object>>, DateTimeOffset, DateTimeOffset> ValuesChanged;
 
@@ -811,7 +812,7 @@
 			Subscription IMarketDataProviderEx.RegisterFilteredMarketDepth(Security security) => null;
 			void IMarketDataProviderEx.UnRegisterFilteredMarketDepth(Security security) { }
 
-			Subscription IMarketDataProviderEx.SubscribeMarketDepth(Security security, DateTimeOffset? from, DateTimeOffset? to, long? count, MarketDataBuildModes buildMode, MarketDataTypes? buildFrom, int? maxDepth, IMessageAdapter adapter) => null;
+			Subscription IMarketDataProviderEx.SubscribeMarketDepth(Security security, DateTimeOffset? from, DateTimeOffset? to, long? count, MarketDataBuildModes buildMode, MarketDataTypes? buildFrom, int? maxDepth, TimeSpan? refreshSpeed, IMessageAdapter adapter) => null;
 			void IMarketDataProviderEx.UnSubscribeMarketDepth(Security security) { }
 
 			Subscription IMarketDataProviderEx.SubscribeTrades(Security security, DateTimeOffset? from, DateTimeOffset? to, long? count, MarketDataBuildModes buildMode, MarketDataTypes? buildFrom, IMessageAdapter adapter) => null;
