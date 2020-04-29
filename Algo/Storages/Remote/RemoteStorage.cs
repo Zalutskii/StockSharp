@@ -198,6 +198,9 @@ namespace StockSharp.Algo.Storages.Remote
 		Tuple<Guid, long> IAuthenticationService.Login4(long productId, string version, string email, string password)
 			=> Login(productId, version, email, password);
 
+		Tuple<Guid, long> IAuthenticationService.Login5(long productId, string version, string token)
+			=> Login(productId, version, null, token);
+
 		private Tuple<Guid, long> Login(long productId, string version, string email, string password)
 		{
 			var sessionId = Authorization.ValidateCredentials(email, password.Secure(), NetworkHelper.UserAddress);
@@ -350,7 +353,7 @@ namespace StockSharp.Algo.Storages.Remote
 			return GetDrives()
 						.SelectMany(drive => drive.GetAvailableDataTypes(securityId, format))
 						.Distinct()
-						.Select(t => Tuple.Create(t.MessageType.Name, TraderHelper.CandleArgToFolderName(t.Arg)))
+						.Select(t => Tuple.Create(t.MessageType.GetTypeAsString(false), t.MessageType.MessageArgToString(t.Arg)))
 						.ToArray();
 		}
 
@@ -420,7 +423,7 @@ namespace StockSharp.Algo.Storages.Remote
 			if (codes == null)
 				throw new ArgumentNullException(nameof(codes));
 
-			this.AddInfoLog(LocalizedStrings.RemoteStorageGetExchanges, sessionId, codes.Join(","));
+			this.AddInfoLog(LocalizedStrings.RemoteStorageGetExchanges, sessionId, codes.JoinComma());
 
 			return codes
 				.Select(ExchangeInfoProvider.GetExchange)
@@ -436,7 +439,7 @@ namespace StockSharp.Algo.Storages.Remote
 			if (codes == null)
 				throw new ArgumentNullException(nameof(codes));
 
-			this.AddInfoLog(LocalizedStrings.RemoteStorageGetExchangeBoards, sessionId, codes.Join(","));
+			this.AddInfoLog(LocalizedStrings.RemoteStorageGetExchangeBoards, sessionId, codes.JoinComma());
 
 			return codes
 				.Select(ExchangeInfoProvider.GetExchangeBoard)
@@ -489,7 +492,7 @@ namespace StockSharp.Algo.Storages.Remote
 			if (codes == null)
 				throw new ArgumentNullException(nameof(codes));
 
-			this.AddInfoLog(LocalizedStrings.RemoteStorageDeleteExchanges, sessionId, codes.Join(","));
+			this.AddInfoLog(LocalizedStrings.RemoteStorageDeleteExchanges, sessionId, codes.JoinComma());
 
 			foreach (var code in codes)
 			{
@@ -509,7 +512,7 @@ namespace StockSharp.Algo.Storages.Remote
 			if (codes == null)
 				throw new ArgumentNullException(nameof(codes));
 
-			this.AddInfoLog(LocalizedStrings.RemoteStorageDeleteExchangeBoards, sessionId, codes.Join(","));
+			this.AddInfoLog(LocalizedStrings.RemoteStorageDeleteExchangeBoards, sessionId, codes.JoinComma());
 
 			foreach (var code in codes)
 			{
@@ -543,7 +546,7 @@ namespace StockSharp.Algo.Storages.Remote
 			if (fields == null)
 				throw new ArgumentNullException(nameof(fields));
 
-			this.AddInfoLog(LocalizedStrings.RemoteStorageCreateSecurityExtendedFields, sessionId, storageName, fields.Select(t => $"{t.Item1}={t.Item2}").Join(","));
+			this.AddInfoLog(LocalizedStrings.RemoteStorageCreateSecurityExtendedFields, sessionId, storageName, fields.Select(t => $"{t.Item1}={t.Item2}").JoinComma());
 
 			ExtendedInfoStorage.Create(storageName, fields.Select(t => Tuple.Create(t.Item1, t.Item2.To<Type>())).ToArray());
 		}
@@ -648,7 +651,7 @@ namespace StockSharp.Algo.Storages.Remote
 		{
 			CheckSession(sessionId, UserPermissions.EditUsers);
 
-			this.AddInfoLog(LocalizedStrings.RemoteStorageSaveUser, sessionId, login, ipAddresses.Join(","), permissions);
+			this.AddInfoLog(LocalizedStrings.RemoteStorageSaveUser, sessionId, login, ipAddresses.JoinComma(), permissions);
 
 			_authorization.SaveRemoteUser(login, password.Secure(), ipAddresses.Select(s => s.To<IPAddress>()).ToArray(), permissions);
 		}

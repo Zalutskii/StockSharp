@@ -17,6 +17,8 @@ namespace StockSharp.Messages
 {
 	using System;
 
+	using Ecng.Common;
+
 	/// <summary>
 	/// Message adapter, forward messages through a transport channel <see cref="IMessageChannel"/>.
 	/// </summary>
@@ -119,7 +121,7 @@ namespace StockSharp.Messages
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new ChannelMessageAdapter((IMessageAdapter)InnerAdapter.Clone(), InputChannel.Clone(), OutputChannel.Clone());
+			return new ChannelMessageAdapter(InnerAdapter.TypedClone(), InputChannel.Clone(), OutputChannel.Clone());
 		}
 	}
 }

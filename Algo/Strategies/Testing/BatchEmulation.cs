@@ -43,8 +43,6 @@ namespace StockSharp.Algo.Strategies.Testing
 
 			public override DateTimeOffset CurrentTime => _parent.CurrentTime;
 
-			protected override bool CanAutoStorage => false;
-
 			public BasketEmulationAdapter(HistoryEmulationConnector parent)
 				: base(parent.TransactionIdGenerator, new CandleBuilderProvider(new InMemoryExchangeInfoProvider()))
 			{
@@ -122,7 +120,7 @@ namespace StockSharp.Algo.Strategies.Testing
 			{
 				Adapter = new BasketEmulationAdapter(this);
 				Adapter.InnerAdapters.Add(EmulationAdapter);
-				Adapter.InnerAdapters.Add(HistoryMessageAdapterEx);
+				Adapter.InnerAdapters.Add(HistoryMessageAdapter);
 
 				Adapter.LatencyManager = null;
 				Adapter.CommissionManager = null;
@@ -394,8 +392,8 @@ namespace StockSharp.Algo.Strategies.Testing
 
 			InitAdapters();
 
-			EmulationConnector.HistoryMessageAdapterEx.StartDate = EmulationSettings.StartTime;
-			EmulationConnector.HistoryMessageAdapterEx.StopDate = EmulationSettings.StopTime;
+			EmulationConnector.HistoryMessageAdapter.StartDate = EmulationSettings.StartTime;
+			EmulationConnector.HistoryMessageAdapter.StopDate = EmulationSettings.StopTime;
 
 			EmulationConnector.LookupSecuritiesResult += OnEmulationConnectorOnLookupSecuritiesResult;
 
@@ -417,11 +415,11 @@ namespace StockSharp.Algo.Strategies.Testing
 				portfolio.Name += "_" + ++id;
 				portfolios.Add(portfolio);
 				
-				var strategyAdapter = new EmulationMessageAdapter(EmulationConnector.TransactionIdGenerator);
-				strategyAdapter.Emulator.Settings.Load(EmulationSettings.Save());
+				var strategyAdapter = new EmulationMessageAdapter(EmulationConnector.MarketDataAdapter, new MessageByLocalTimeQueue(), true);
+				strategyAdapter.Settings.Load(EmulationSettings.Save());
 
 				adapter.InnerAdapters.Add(strategyAdapter);
-				adapter.PortfolioAdapterProvider.SetAdapter(portfolio.Name, strategyAdapter.Id);
+				adapter.PortfolioAdapterProvider.SetAdapter(portfolio.Name, ((IMessageAdapter)strategyAdapter).Id);
 
 				strategy.Connector = EmulationConnector;
 				strategy.Portfolio = portfolio;

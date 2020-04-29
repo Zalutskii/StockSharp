@@ -186,14 +186,14 @@ namespace StockSharp.Messages
 		Theta,
 
 		/// <summary>
-		/// Initial margin (buy).
+		/// Initial margin to buy.
 		/// </summary>
 		[EnumMember]
 		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.Str304Key)]
 		MarginBuy,
 
 		/// <summary>
-		/// Initial margin (sell).
+		/// Initial margin to sell.
 		/// </summary>
 		[EnumMember]
 		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.Str305Key)]
@@ -830,7 +830,7 @@ namespace StockSharp.Messages
 		/// <inheritdoc />
 		public override string ToString()
 		{
-			return base.ToString() + $",Sec={SecurityId},Changes={Changes.Select(c => c.ToString()).Join(",")}";
+			return base.ToString() + $",Sec={SecurityId},Changes={Changes.Select(c => c.ToString()).JoinComma()}";
 		}
 	}
 }

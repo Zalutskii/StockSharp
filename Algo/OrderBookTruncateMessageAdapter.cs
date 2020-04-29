@@ -3,6 +3,7 @@
 	using System.Collections.Generic;
 	using System.Linq;
 
+	using Ecng.Common;
 	using Ecng.Collections;
 
 	using StockSharp.Logging;
@@ -49,7 +50,7 @@
 
 								if (supportedDepth != actualDepth)
 								{
-									mdMsg = (MarketDataMessage)mdMsg.Clone();
+									mdMsg = mdMsg.TypedClone();
 									mdMsg.MaxDepth = supportedDepth;
 
 									_depths.Add(mdMsg.TransactionId, actualDepth);
@@ -112,7 +113,7 @@
 
 						var maxDepth = group.Key.Value;
 
-						var clone = (QuoteChangeMessage)quoteMsg.Clone();
+						var clone = quoteMsg.TypedClone();
 
 						clone.SetSubscriptionIds(group.ToArray());
 
@@ -155,7 +156,7 @@
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new OrderBookTruncateMessageAdapter((IMessageAdapter)InnerAdapter.Clone());
+			return new OrderBookTruncateMessageAdapter(InnerAdapter.TypedClone());
 		}
 	}
 }

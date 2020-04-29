@@ -39,8 +39,8 @@ namespace StockSharp.Algo.Storages.Binary
 		{
 			base.Write(stream);
 
-			stream.Write(FirstPrice);
-			stream.Write(LastPrice);
+			stream.WriteEx(FirstPrice);
+			stream.WriteEx(LastPrice);
 
 			WriteFractionalVolume(stream);
 			WriteLocalTime(stream, MarketDataVersions.Version46);
@@ -48,7 +48,7 @@ namespace StockSharp.Algo.Storages.Binary
 			if (Version < MarketDataVersions.Version50)
 				return;
 
-			stream.Write(ServerOffset);
+			stream.WriteEx(ServerOffset);
 
 			if (Version < MarketDataVersions.Version52)
 				return;
@@ -134,7 +134,7 @@ namespace StockSharp.Algo.Storages.Binary
 
 				if (!quoteMsg.IsSorted)
 				{
-					quoteMsg = (QuoteChangeMessage)quoteMsg.Clone();
+					quoteMsg = quoteMsg.TypedClone();
 
 					quoteMsg.Bids = quoteMsg.Bids.OrderByDescending(q => q.Price).ToArray();
 					quoteMsg.Asks = quoteMsg.Asks.OrderBy(q => q.Price).ToArray();

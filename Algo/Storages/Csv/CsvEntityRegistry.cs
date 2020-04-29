@@ -742,7 +742,7 @@ namespace StockSharp.Algo.Storages.Csv
 				}
 
 				if ((reader.ColumnCurr + 1) < reader.ColumnCount)
-					portfolio.InternalId = reader.ReadString().To<Guid?>();
+					/*portfolio.InternalId = */reader.ReadString().To<Guid?>();
 
 				return portfolio;
 			}
@@ -774,7 +774,7 @@ namespace StockSharp.Algo.Storages.Csv
 					data.ExpirationDate?.UtcDateTime.ToString(_dateTimeFormat),
 					data.CommissionMaker.To<string>(),
 					data.CommissionTaker.To<string>(),
-					data.InternalId.To<string>(),
+					/*data.InternalId.To<string>()*/string.Empty,
 				});
 			}
 		}
@@ -935,7 +935,7 @@ namespace StockSharp.Algo.Storages.Csv
 					data.SecurityId.SecurityCode,
 					data.SecurityId.BoardCode,
 					data.DataType.To<string>(),
-					TraderHelper.CandleArgToFolderName(data.Arg),
+					data.DataType.IsCandleDataType() ? data.DataType.ToCandleMessage().CandleArgToFolderName(data.Arg) : data.Arg.To<string>(),
 					data.IsCalcVolumeProfile.To<string>(),
 					data.AllowBuildFromSmallerTimeFrame.To<string>(),
 					data.IsRegularTradingHours.To<string>(),

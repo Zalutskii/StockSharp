@@ -7,6 +7,7 @@
 	using Ecng.Collections;
 	using Ecng.Common;
 
+	using StockSharp.Logging;
 	using StockSharp.Messages;
 
 	/// <summary>
@@ -113,7 +114,7 @@
 				if (LastIteration)
 					throw new InvalidOperationException("LastIteration == true");
 
-				var mdMsg = (MarketDataMessage)Origin.Clone();
+				var mdMsg = Origin.TypedClone();
 
 				if (_firstIteration)
 				{
@@ -278,7 +279,7 @@
 								}
 							}
 
-							var info = new DownloadInfo(this, (MarketDataMessage)mdMsg.Clone(), step, iterationInterval);
+							var info = new DownloadInfo(this, mdMsg.TypedClone(), step, iterationInterval);
 
 							message = info.InitNext();
 
@@ -287,6 +288,8 @@
 								_original.Add(info.Origin.TransactionId, info);
 								_partialRequests.Add(info.CurrTransId, info);
 							}
+
+							this.AddInfoLog("Downloading {0}/{1}: {2}-{3}", mdMsg.SecurityId, mdMsg.DataType, mdMsg.From, mdMsg.To);
 						}
 						else
 						{
@@ -313,6 +316,8 @@
 				{
 					var partialMsg = (PartialDownloadMessage)message;
 
+					MarketDataMessage mdMsg;
+
 					lock (_syncObject)
 					{
 						if (!_original.TryGetValue(partialMsg.OriginalTransactionId, out var info))
@@ -325,7 +330,7 @@
 							break;
 						}
 
-						var mdMsg = info.InitNext();
+						mdMsg = info.InitNext();
 
 						if (mdMsg.To == null)
 						{
@@ -339,6 +344,8 @@
 
 						message = mdMsg;
 					}
+
+					this.AddInfoLog("Downloading {0}/{1}: {2}-{3}", mdMsg.SecurityId, mdMsg.DataType, mdMsg.From, mdMsg.To);
 
 					break;
 				}
@@ -448,19 +455,18 @@
 								message = new PartialDownloadMessage { OriginalTransactionId = origin.TransactionId }.LoopBack(this);
 							}
 						}
+						else
+							break;
 					}
+
+					this.AddInfoLog("Partial {0} finished.", finishMsg.OriginalTransactionId);
 
 					break;
 				}
 
 				case MessageTypes.Execution:
 				{
-					var execMsg = (ExecutionMessage)message;
-
-					if (!execMsg.IsMarketData())
-						break;
-
-					TryUpdateSubscriptionResult(execMsg);
+					TryUpdateSubscriptionResult((ExecutionMessage)message);
 					break;
 				}
 
@@ -473,6 +479,12 @@
 				case MessageTypes.QuoteChange:
 				{
 					TryUpdateSubscriptionResult((QuoteChangeMessage)message);
+					break;
+				}
+
+				case MessageTypes.PositionChange:
+				{
+					TryUpdateSubscriptionResult((PositionChangeMessage)message);
 					break;
 				}
 
@@ -505,7 +517,9 @@
 					return;
 
 				info.TryUpdateNextFrom(message.ServerTime);
+
 				message.OriginalTransactionId = info.Origin.TransactionId;
+				message.SetSubscriptionIds(subscriptionId: info.Origin.TransactionId);
 			}
 		}
 
@@ -515,7 +529,7 @@
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new PartialDownloadMessageAdapter((IMessageAdapter)InnerAdapter.Clone());
+			return new PartialDownloadMessageAdapter(InnerAdapter.TypedClone());
 		}
 	}
 }

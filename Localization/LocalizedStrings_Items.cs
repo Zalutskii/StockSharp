@@ -18,6 +18,226 @@ namespace StockSharp.Localization
 	partial class LocalizedStrings
 	{
 		/// <summary>
+		/// Application update
+		/// </summary>
+		public const string ApplicationUpdateKey = nameof(ApplicationUpdate);
+
+		/// <summary>
+		/// Application update
+		/// </summary>
+		public static string ApplicationUpdate => GetString(ApplicationUpdateKey);
+
+		/// <summary>
+		/// Following updates are available
+		/// </summary>
+		public const string FollowingUpdatesAvailableKey = nameof(FollowingUpdatesAvailable);
+
+		/// <summary>
+		/// Following updates are available
+		/// </summary>
+		public static string FollowingUpdatesAvailable => GetString(FollowingUpdatesAvailableKey);
+
+		/// <summary>
+		/// {0} is not found
+		/// </summary>
+		public const string ElementNotFoundParamsKey = nameof(ElementNotFoundParams);
+
+		/// <summary>
+		/// {0} is not found
+		/// </summary>
+		public static string ElementNotFoundParams => GetString(ElementNotFoundParamsKey);
+
+		/// <summary>
+		/// Exiting the application
+		/// </summary>
+		public const string ExitingApplicationKey = nameof(ExitingApplication);
+
+		/// <summary>
+		/// Exiting the application
+		/// </summary>
+		public static string ExitingApplication => GetString(ExitingApplicationKey);
+
+		/// <summary>
+		/// The application will be stopped in order to run installer
+		/// </summary>
+		public const string ExitingAppForInstallerKey = nameof(ExitingAppForInstaller);
+
+		/// <summary>
+		/// The application will be stopped in order to run installer
+		/// </summary>
+		public static string ExitingAppForInstaller => GetString(ExitingAppForInstallerKey);
+
+		/// <summary>
+		/// Update is not required
+		/// </summary>
+		public const string UpdateIsNotRequiredKey = nameof(UpdateIsNotRequired);
+
+		/// <summary>
+		/// Update is not required
+		/// </summary>
+		public static string UpdateIsNotRequired => GetString(UpdateIsNotRequiredKey);
+
+		/// <summary>
+		/// The installer was not found
+		/// </summary>
+		public const string InstallerNotFoundKey = nameof(InstallerNotFound);
+
+		/// <summary>
+		/// The installer was not found
+		/// </summary>
+		public static string InstallerNotFound => GetString(InstallerNotFoundKey);
+
+		/// <summary>
+		/// The installer was not found. In order to be able to update the applications you need to download application installer at {0}.
+		/// </summary>
+		public const string InstallerNotFoundDetailParamsKey = nameof(InstallerNotFoundDetailParams);
+
+		/// <summary>
+		/// The installer was not found. In order to be able to update the applications you need to download application installer at {0}.
+		/// </summary>
+		public static string InstallerNotFoundDetailParams => GetString(InstallerNotFoundDetailParamsKey);
+
+		/// <summary>
+		/// Application install folder
+		/// </summary>
+		public const string AppInstallDirKey = nameof(AppInstallDir);
+
+		/// <summary>
+		/// Application install folder
+		/// </summary>
+		public static string AppInstallDir => GetString(AppInstallDirKey);
+
+		/// <summary>
+		/// install
+		/// </summary>
+		public const string InstallKey = nameof(Install);
+
+		/// <summary>
+		/// install
+		/// </summary>
+		public static string Install => GetString(InstallKey);
+
+		/// <summary>
+		/// reset
+		/// </summary>
+		public const string ResetAppKey = nameof(ResetApp);
+
+		/// <summary>
+		/// reset
+		/// </summary>
+		public static string ResetApp => GetString(ResetAppKey);
+
+		/// <summary>
+		/// installing
+		/// </summary>
+		public const string InstallingKey = nameof(Installing);
+
+		/// <summary>
+		/// installing
+		/// </summary>
+		public static string Installing => GetString(InstallingKey);
+
+		/// <summary>
+		/// installed
+		/// </summary>
+		public const string InstalledKey = nameof(Installed);
+
+		/// <summary>
+		/// installed
+		/// </summary>
+		public static string Installed => GetString(InstalledKey);
+
+		/// <summary>
+		/// not installed
+		/// </summary>
+		public const string NotInstalledKey = nameof(NotInstalled);
+
+		/// <summary>
+		/// not installed
+		/// </summary>
+		public static string NotInstalled => GetString(NotInstalledKey);
+
+		/// <summary>
+		/// Applications
+		/// </summary>
+		public const string ApplicationsKey = nameof(Applications);
+
+		/// <summary>
+		/// Applications
+		/// </summary>
+		public static string Applications => GetString(ApplicationsKey);
+
+		/// <summary>
+		/// Plugins
+		/// </summary>
+		public const string PluginsKey = nameof(Plugins);
+
+		/// <summary>
+		/// Plugins
+		/// </summary>
+		public static string Plugins => GetString(PluginsKey);
+
+		/// <summary>
+		/// Update information
+		/// </summary>
+		public const string UpdateDetailsKey = nameof(UpdateDetails);
+
+		/// <summary>
+		/// Update information
+		/// </summary>
+		public static string UpdateDetails => GetString(UpdateDetailsKey);
+
+		/// <summary>
+		/// Update fail details
+		/// </summary>
+		public const string UpdateFailDetailsKey = nameof(UpdateFailDetails);
+
+		/// <summary>
+		/// Update fail details
+		/// </summary>
+		public static string UpdateFailDetails => GetString(UpdateFailDetailsKey);
+	
+		/// <summary>
+		/// S#.Installer
+		/// </summary>
+		public const string StockSharpInstallerKey = nameof(StockSharpInstaller);
+
+		/// <summary>
+		/// S#.Installer
+		/// </summary>
+		public static string StockSharpInstaller => GetString(StockSharpInstallerKey);
+
+		/// <summary>
+		/// Setup type
+		/// </summary>
+		public const string SetupTypeKey = nameof(SetupType);
+
+		/// <summary>
+		/// Setup type
+		/// </summary>
+		public static string SetupType => GetString(SetupTypeKey);
+
+		/// <summary>
+		/// Package version
+		/// </summary>
+		public const string PackageVersionKey = nameof(PackageVersion);
+
+		/// <summary>
+		/// Package version
+		/// </summary>
+		public static string PackageVersion => GetString(PackageVersionKey);
+
+		/// <summary>
+		/// Output directory
+		/// </summary>
+		public const string OutputDirectoryKey = nameof(OutputDirectory);
+
+		/// <summary>
+		/// Output directory
+		/// </summary>
+		public static string OutputDirectory => GetString(OutputDirectoryKey);
+
+		/// <summary>
 		/// Draw size
 		/// </summary>
 		public const string  DrawSizeKey = nameof(DrawSize);
@@ -3628,22 +3848,22 @@ namespace StockSharp.Localization
 		public static string Theta => GetString(ThetaKey);
 
 		/// <summary>
-		/// Initial margin (buy)
+		/// Initial margin to buy
 		/// </summary>
 		public const string Str304Key = nameof(Str304);
 
 		/// <summary>
-		/// Initial margin (buy)
+		/// Initial margin to buy
 		/// </summary>
 		public static string Str304 => GetString(Str304Key);
 
 		/// <summary>
-		/// Initial margin (sell)
+		/// Initial margin to sell
 		/// </summary>
 		public const string Str305Key = nameof(Str305);
 
 		/// <summary>
-		/// Initial margin (sell)
+		/// Initial margin to sell
 		/// </summary>
 		public static string Str305 => GetString(Str305Key);
 
@@ -47705,7 +47925,7 @@ namespace StockSharp.Localization
 		/// <summary>
 		/// Split (after)
 		/// </summary>
-                public static string AfterSplit => GetString(AfterSplitKey);
+		public static string AfterSplit => GetString(AfterSplitKey);
 
 		/// <summary>
 		/// Split (before)
@@ -51216,5 +51436,35 @@ namespace StockSharp.Localization
 		/// Orders (margin)
 		/// </summary>
 		public static string OrdersMargin => GetString(OrdersMarginKey);
+
+		/// <summary>
+		/// License N{0} is not support on current platform.
+		/// </summary>
+		public const string LicenseNotSupportPlatformKey = nameof(LicenseNotSupportPlatform);
+
+		/// <summary>
+		/// License N{0} is not support on current platform.
+		/// </summary>
+		public static string LicenseNotSupportPlatform => GetString(LicenseNotSupportPlatformKey);
+
+		/// <summary>
+		/// OS
+		/// </summary>
+		public const string OSKey = nameof(OS);
+
+		/// <summary>
+		/// OS
+		/// </summary>
+		public static string OS => GetString(OSKey);
+
+		/// <summary>
+		/// UDP Dumper
+		/// </summary>
+		public const string UdpDumperKey = nameof(UdpDumper);
+
+		/// <summary>
+		/// UDP Dumper
+		/// </summary>
+		public static string UdpDumper => GetString(UdpDumperKey);
 	}
 }

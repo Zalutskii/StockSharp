@@ -22,7 +22,7 @@ namespace SampleConnection
 
 	public partial class SecuritiesWindow
 	{
-		private readonly SynchronizedDictionary<Subscription, QuotesWindow> _quotesWindows = new SynchronizedDictionary<Subscription, QuotesWindow>();
+		private readonly SynchronizedDictionary<Security, QuotesWindow> _quotesWindows = new SynchronizedDictionary<Security, QuotesWindow>();
 		private readonly SynchronizedList<ChartWindow> _chartWindows = new SynchronizedList<ChartWindow>();
 		private bool _initialized;
 		private bool _appClosing;
@@ -123,14 +123,20 @@ namespace SampleConnection
 
 			foreach (var security in SecurityPicker.SelectedSecurities)
 			{
-				// subscribe on order book flow
-				var subscription = connector.SubscribeMarketDepth(security, settings?.From, settings?.To, buildMode: settings?.BuildMode ?? MarketDataBuildModes.LoadAndBuild, maxDepth: settings?.MaxDepth, buildFrom: settings?.BuildFrom);
-
 				// create order book window
 				var window = new QuotesWindow
 				{
 					Title = security.Id + " " + LocalizedStrings.MarketDepth
 				};
+
+				window.DepthCtrl.UpdateDepth(connector.GetMarketDepth(security));
+				window.Show();
+				
+				// subscribe on order book flow
+				var subscription = connector.SubscribeMarketDepth(security, settings?.From, settings?.To, buildMode: settings?.BuildMode ?? MarketDataBuildModes.LoadAndBuild, maxDepth: settings?.MaxDepth, buildFrom: settings?.BuildFrom);
+
+				_quotesWindows.Add(security, window);
+
 				window.Closed += (s, e) =>
 				{
 					if (_appClosing)
@@ -139,11 +145,6 @@ namespace SampleConnection
 					if (subscription.State.IsActive())
 						connector.UnSubscribe(subscription);
 				};
-
-				window.DepthCtrl.UpdateDepth(connector.GetMarketDepth(security));
-				window.Show();
-
-				_quotesWindows.Add(subscription, window);
 			}
 		}
 
@@ -218,7 +219,7 @@ namespace SampleConnection
 
 		private void TraderOnMarketDepthChanged(Subscription subscription, MarketDepth depth)
 		{
-			if (_quotesWindows.TryGetValue(subscription, out var wnd))
+			if (_quotesWindows.TryGetValue(depth.Security, out var wnd))
 				wnd.DepthCtrl.UpdateDepth(depth);
 		}
 

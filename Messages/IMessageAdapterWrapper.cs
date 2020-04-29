@@ -131,6 +131,16 @@ namespace StockSharp.Messages
 			InnerAdapter.Close();
 		}
 
+		void IMessageChannel.Suspend()
+		{
+			InnerAdapter.Suspend();
+		}
+
+		void IMessageChannel.Resume()
+		{
+			InnerAdapter.Resume();
+		}
+
 		event Action IMessageChannel.StateChanged
 		{
 			add => InnerAdapter.StateChanged += value;
@@ -254,11 +264,7 @@ namespace StockSharp.Messages
 		public IdGenerator TransactionIdGenerator => InnerAdapter.TransactionIdGenerator;
 
 		/// <inheritdoc />
-		public virtual IEnumerable<MessageTypeInfo> PossibleSupportedMessages
-		{
-			get => InnerAdapter.PossibleSupportedMessages;
-			set => InnerAdapter.PossibleSupportedMessages = value;
-		}
+		public virtual IEnumerable<MessageTypeInfo> PossibleSupportedMessages => InnerAdapter.PossibleSupportedMessages;
 
 		/// <inheritdoc />
 		public virtual IEnumerable<MessageTypes> SupportedInMessages
@@ -268,25 +274,13 @@ namespace StockSharp.Messages
 		}
 
 		/// <inheritdoc />
-		public virtual IEnumerable<MessageTypes> SupportedOutMessages
-		{
-			get => InnerAdapter.SupportedOutMessages;
-			set => InnerAdapter.SupportedOutMessages = value;
-		}
+		public virtual IEnumerable<MessageTypes> SupportedOutMessages => InnerAdapter.SupportedOutMessages;
 
 		/// <inheritdoc />
-		public virtual IEnumerable<MessageTypes> SupportedResultMessages
-		{
-			get => InnerAdapter.SupportedResultMessages;
-			set => InnerAdapter.SupportedResultMessages = value;
-		}
+		public virtual IEnumerable<MessageTypes> SupportedResultMessages => InnerAdapter.SupportedResultMessages;
 
 		/// <inheritdoc />
-		public virtual IEnumerable<DataType> SupportedMarketDataTypes
-		{
-			get => InnerAdapter.SupportedMarketDataTypes;
-			set => InnerAdapter.SupportedMarketDataTypes = value;
-		}
+		public virtual IEnumerable<DataType> SupportedMarketDataTypes => InnerAdapter.SupportedMarketDataTypes;
 
 		IDictionary<string, RefPair<SecurityTypes, string>> IMessageAdapter.SecurityClassInfo => InnerAdapter.SecurityClassInfo;
 

@@ -110,7 +110,7 @@
 						{
 							var timeMsg = (TimeMessage)message;
 
-							if (timeMsg.OfflineMode == MessageOfflineModes.Force)
+							if (timeMsg.OfflineMode == MessageOfflineModes.Ignore)
 								break;
 
 							return true;
@@ -239,7 +239,7 @@
 							}
 
 							break;
-						case MessageOfflineModes.Force:
+						case MessageOfflineModes.Ignore:
 							break;
 						case MessageOfflineModes.Cancel:
 						{
@@ -382,7 +382,7 @@
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
 		{
-			return new OfflineMessageAdapter((IMessageAdapter)InnerAdapter.Clone());
+			return new OfflineMessageAdapter(InnerAdapter.TypedClone());
 		}
 	}
 }

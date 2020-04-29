@@ -1,4 +1,26 @@
-﻿DrawSize;Draw size;Размер отрисовки
+﻿ApplicationUpdate;Application update;Обновление приложения
+FollowingUpdatesAvailable;Following updates are available;Доступны следующие обновления
+ElementNotFoundParams;{0} is not found;{0} не найден
+ExitingApplication;Exiting the application;Завершение приложения
+ExitingAppForInstaller;The application will be stopped in order to run installer;Для запуска установщика приложение будет закрыто
+UpdateIsNotRequired;Update is not required;Обновление не требуется
+InstallerNotFound;The installer was not found;Установщик не найден
+InstallerNotFoundDetailParams;The installer was not found. In order to be able to update the applications you need to download application installer at {0}.;Программа-установщик обновлений не найдена. Чтобы использовать функцию обновления приложений, необходимо скачать установщик обновлений по адресу {0}.
+AppInstallDir;Application install folder;Папка для установки приложения
+Install;install;установить
+ResetApp;reset;сбросить
+Installing;installing;установка
+Installed;installed;установлено
+NotInstalled;not installed;не установлено
+Applications;Applications;Приложения
+Plugins;Plugins;Плагины
+UpdateDetails;Update information;Информация об обновлении
+UpdateFailDetails;Update fail details;Информация об ошибке
+StockSharpInstaller;S#.Installer;S#.Установщик
+SetupType;Setup type;Тип установки
+PackageVersion;Package version;Версия пакета
+OutputDirectory;Output directory;Выходная папка
+DrawSize;Draw size;Размер отрисовки
 OrdersDisplayFilter;Orders display filter;Фильтр отображения заявок
 AllOrders;All orders;Все заявки
 ErrorOrdersOnly;Orders with errors;Заявки с ошибками
@@ -5155,6 +5177,9 @@ SubscriptionNotifySubscriber;Subscription {0} notify subscriber {1}.;Подпи�
 OnlineSubscriptionRemoved;Online subscription {0} removed.;Онлайн подписку {0} удалена.
 DigitexFutures;Digitex Futures;Digitex Futures
 OrdersMargin;Orders (margin);Заявки (маржа)
+LicenseNotSupportPlatform;License N{0} is not support on current platform.;Лицензия N{0} не поддерживается на текущей платформе.
+OS;OS;ОС
+UdpDumper;UDP Dumper;UDP Dumper
 DocStr0;Button activation alert settings;Кнопка активации настроек сигнала
 DocStr1;Initializes a new instance of the {0};Создать {0}
 DocStr2;Load settings;Загрузить настройки
@@ -6541,17 +6566,17 @@ DocStr1437;The order re-registration;Перерегистрация заявки
 DocStr1438;Group canceling of orders;Групповая отмена заявок
 DocStr1439;The sign of deletion of order residual due to cross-trade;Признак удаления остатка заявки по причине кросс-сделки
 DocStr1440;Building order book by the orders log;Построение стакана по логу заявок
-DocStr1441;To check, does the string contain the order registration;Проверить, содержит ли строчка регистрацию заявки
+DocStr1441;To check, does the order log contain the order registration;Проверить, содержит ли лог заявок регистрацию заявки
 DocStr1442;Order log item;Строчка лога заявок
-DocStr1443;{0}, if the string contains the order registration, otherwise, {1};{0}, если строчка содержит регистрацию заявки, иначе, {1}
-DocStr1444;To check, does the string contain the cancelled order;Проверить, содержит ли строчка отмененные заявки
-DocStr1445;{0}, if the string contain the cancelled order, otherwise, {1};{0}, если строчка содержит отмененные заявки, иначе, {1}
-DocStr1446;To check, does the string contain the order matching;Проверить, содержит ли строчка исполнение заявки
-DocStr1447;{0}, if the string contains order matching, otherwise, {1};{0}, если строчка содержит исполнение заявки, иначе, {1}
+DocStr1443;{0}, if the order log contains the order registration, otherwise, {1};{0}, если лог заявок содержит регистрацию заявки, иначе, {1}
+DocStr1444;To check, does the order log contain the cancelled order;Проверить, содержит ли лог заявок отмененные заявки
+DocStr1445;{0}, if the order log contain the cancelled order, otherwise, {1};{0}, если лог заявок содержит отмененные заявки, иначе, {1}
+DocStr1446;To check, does the order log contain the order matching;Проверить, содержит ли лог заявок исполнение заявки
+DocStr1447;{0}, if the order log contains order matching, otherwise, {1};{0}, если лог заявок содержит исполнение заявки, иначе, {1}
 DocStr1448;To get the reason for cancelling order in orders log;Получить причину отмены заявки в логе заявок
 DocStr1449;The reason for order cancelling in order log;Причина отмены заявки в логе заявок
 DocStr1450;Order log to market depth builder;Построитель стакана
-DocStr1451;The interval of the order book generation. The default is {0}, which means order books generation at each new string of orders log;Интервал генерации стакана. По умолчанию равен {0}, что означает генерацию стаканов при каждой новой строчке лога заявок
+DocStr1451;The interval of the order book generation. The default is {0}, which means order books generation at each new item of orders log;Интервал генерации стакана. По умолчанию равен {0}, что означает генерацию стаканов при каждой новой строчке лога заявок
 DocStr1452;The maximal depth of order book. The default is {0}, which means endless depth;Максимальная глубина стакана. По умолчанию равно {0}, что означает бесконечную глубину
 DocStr1453;To build tick trades from the orders log;Построить тиковые сделки из лога заявок
 DocStr1454;The timer, based on trading system time;Таймер, основанный на времени торговой системы
@@ -14784,7 +14809,6 @@ DocStr10194;Implementation of {0} in binary format;Реализация {0} в �
 DocStr10195;Storage modes;Режимы хранилищ
 DocStr10196;Full;Полное
 DocStr10197;Full and snapshot;Полное и снэпшот
-DocStr10198;Storage mode. By default is {0};Режим хранилища. По-умолчанию равно {0}
 DocStr10199;Implementation of {0} in binary format for {1};Реализация {0} в бинарном формате для {1}
 DocStr10200;The interface for serialize snapshots;Интерфейс сериализации снэпшотов
 DocStr10201;Version of data format;Версия формата данных
@@ -15857,7 +15881,6 @@ DocStr11435;Determines the specified type is lookup;Определить, явл
 DocStr11436;Determines the specified type is lookup result message;Определить, является ли переданный тип сообщением результата поиска
 DocStr11437;Create message by the specified type;Создать сообщение по указанному типу
 DocStr11438;Replace security id by the specified;Заменить идентификатор инструмента указанным
-DocStr11439;Determines the security id required for the specified message;Определить, необходим ли идентификатор инструмента для указанного сообщения
 DocStr11440;Determines the specified message contains {0} position;Определить, содержит ли позицию {0} переданное сообщение
 DocStr11441;The interface describing an message with {0} method;Интерфейс, описывающий сообщение с методом {0}
 DocStr11442;Create security id with board code set as {0};Создать идентификатор инструмента с кодом площадки, установленным в {0}
@@ -16101,7 +16124,6 @@ DocStr11686;Security ID or {0} if message do not provide it;Security ID or {0} i
 DocStr11687;Online subscription counter adapter;Online subscription counter adapter
 DocStr11688;Download securities info;Download securities info
 DocStr11689;Get hash for the specified input;Get hash for the specified input
-DocStr11690;Hash;Hash
 DocStr11691;Defines the different types of data that can be returned;Defines the different types of data that can be returned
 DocStr11692;Bid Prices;Bid Prices
 DocStr11693;Ask Prices;Ask Prices
@@ -16115,11 +16137,38 @@ DocStr11700;The order book is closed and waiting to be opened;The order book is 
 DocStr11701;The trades on the order book have been settled;The trades on the order book have been settled
 DocStr11702;The order book is no longer trading;The order book is no longer trading
 DocStr11703;Base implementation of {0} interface;Base implementation of {0} interface
-DocStr11704;Initial margin (buy);Initial margin (buy)
-DocStr11705;Initial margin (sell);Initial margin (sell)
 DocStr11706;Xaml extension to use themed SVG icons;Xaml extension to use themed SVG icons
 DocStr11707;Icon key;Icon key
 DocStr11708;Get icon image source;Get icon image source
-DocStr11709;The icon key;The icon key
 DocStr11710;Xaml extension to apply color to SVG icons;Xaml extension to apply color to SVG icons
 DocStr11711;New icon color;New icon color
+DocStr11712;To build level1 from the orders log;To build level1 from the orders log
+DocStr11713;Check the specified mode turned on;Check the specified mode turned on
+DocStr11714;Storage mode;Режим хранилища
+DocStr11715;To build level1 from the order books;To build level1 from the order books
+DocStr11716;To check, does the string contain the order registration;To check, does the string contain the order registration
+DocStr11717;{0}, if the string contains the order registration, otherwise, {1};{0}, if the string contains the order registration, otherwise, {1}
+DocStr11718;To check, does the string contain the cancelled order;To check, does the string contain the cancelled order
+DocStr11719;{0}, if the string contain the cancelled order, otherwise, {1};{0}, if the string contain the cancelled order, otherwise, {1}
+DocStr11720;To check, does the string contain the order matching;To check, does the string contain the order matching
+DocStr11721;{0}, if the string contains order matching, otherwise, {1};{0}, if the string contains order matching, otherwise, {1}
+DocStr11722;Determines the specified message is required build only mode;Determines the specified message is required build only mode
+DocStr11723;Emulation message adapter;Emulation message adapter
+DocStr11724;Allow store generated by {0} messages;Allow store generated by {0} messages
+DocStr11725;REST protocol port;REST protocol port
+DocStr11726;order id (the taker's order);order id (the taker's order)
+DocStr11727;T for taker, M for maker;T for taker, M for maker
+DocStr11728;Supported platforms (Windows, Linux etc.);Supported platforms (Windows, Linux etc.)
+DocStr11729;Convert {0} to file name;Convert {0} to file name
+DocStr11730;Convert file name to {0};Convert file name to {0}
+DocStr11733;Convert key to numeric identifier;Convert key to numeric identifier
+DocStr11734;Get current chart theme;Get current chart theme
+DocStr11735;Determines the {0} is dark;Determines the {0} is dark
+DocStr11736;Send {0} to emulator;Send {0} to emulator
+DocStr11737;Suspend;Suspend
+DocStr11738;Get values;Get values
+DocStr11739;Interaction logic for SubsetComboBox.xaml;Interaction logic for SubsetComboBox.xaml
+DocStr11740;Current value type in the combo box;Current value type in the combo box
+DocStr11741;Load messages;Load messages
+DocStr11742;Last date;Last date
+DocStr11743;Extract time frames from the specified data types set;Extract time frames from the specified data types set
