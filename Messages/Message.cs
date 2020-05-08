@@ -47,6 +47,27 @@ namespace StockSharp.Messages
 	}
 
 	/// <summary>
+	/// Message loopback modes.
+	/// </summary>
+	public enum MessageBackModes
+	{
+		/// <summary>
+		/// None.
+		/// </summary>
+		None,
+
+		/// <summary>
+		/// Direct.
+		/// </summary>
+		Direct,
+
+		/// <summary>
+		/// Via whole adapters chain.
+		/// </summary>
+		Chain,
+	}
+
+	/// <summary>
 	/// A message containing market data or command.
 	/// </summary>
 	[System.Runtime.Serialization.DataContract]
@@ -86,7 +107,17 @@ namespace StockSharp.Messages
 		/// </summary>
 		[Ignore]
 		[XmlIgnore]
-		public bool IsBack { get; set; }
+		[Obsolete("Use BackMode property.")]
+		public bool IsBack
+		{
+			get => this.IsBack();
+			set => BackMode = value ? MessageBackModes.Direct : MessageBackModes.None;
+		}
+
+		/// <inheritdoc />
+		[Ignore]
+		[XmlIgnore]
+		public MessageBackModes BackMode { get; set; }
 
 		/// <summary>
 		/// Offline mode handling message.
@@ -95,9 +126,7 @@ namespace StockSharp.Messages
 		[XmlIgnore]
 		public MessageOfflineModes OfflineMode { get; set; }
 
-		/// <summary>
-		/// Source adapter. Can be <see langword="null" />.
-		/// </summary>
+		/// <inheritdoc />
 		[Ignore]
 		[XmlIgnore]
 		public IMessageAdapter Adapter { get; set; }

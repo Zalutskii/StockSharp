@@ -118,7 +118,7 @@ namespace StockSharp.Algo.Storages
 
 			Buffer.ProcessMessage(message);
 
-			if (message.IsSubscribe && Settings.IsMode(StorageModes.Snapshot))
+			if (message.IsSubscribe && message.From == null && message.To == null && Settings.IsMode(StorageModes.Snapshot))
 			{
 				void SendSnapshot<TMessage>(TMessage msg)
 					where TMessage : Message, ISubscriptionIdMessage
@@ -127,54 +127,45 @@ namespace StockSharp.Algo.Storages
 					RaiseNewOutMessage(msg);
 				}
 
-				switch (message.DataType)
+				if (message.DataType2 == DataType.Level1)
 				{
-					case MarketDataTypes.Level1:
+					var l1Storage = GetSnapshotStorage(message.DataType2);
+
+					if (message.SecurityId == default)
 					{
-						var l1Storage = GetSnapshotStorage(DataType.Level1);
-
-						if (message.SecurityId == default)
-						{
-							foreach (Level1ChangeMessage msg in l1Storage.GetAll())
-								SendSnapshot(msg);
-						}
-						else
-						{
-							var level1Msg = (Level1ChangeMessage)l1Storage.Get(message.SecurityId);
-
-							if (level1Msg != null)
-							{
-								//SendReply();
-								SendSnapshot(level1Msg);
-							}
-						}
-
-						break;
+						foreach (Level1ChangeMessage msg in l1Storage.GetAll())
+							SendSnapshot(msg);
 					}
-					case MarketDataTypes.MarketDepth:
+					else
 					{
-						var	quotesStorage = GetSnapshotStorage(DataType.MarketDepth);
+						var level1Msg = (Level1ChangeMessage)l1Storage.Get(message.SecurityId);
 
-						if (message.SecurityId == default)
+						if (level1Msg != null)
 						{
-							foreach (QuoteChangeMessage msg in quotesStorage.GetAll())
-								SendSnapshot(msg);
+							//SendReply();
+							SendSnapshot(level1Msg);
 						}
-						else
-						{
-							var quotesMsg = (QuoteChangeMessage)quotesStorage.Get(message.SecurityId);
-
-							if (quotesMsg != null)
-							{
-								//SendReply();
-								SendSnapshot(quotesMsg);
-							}
-						}
-
-						break;
 					}
-					default:
-						break;
+				}
+				else if (message.DataType2 == DataType.MarketDepth)
+				{
+					var	quotesStorage = GetSnapshotStorage(message.DataType2);
+
+					if (message.SecurityId == default)
+					{
+						foreach (QuoteChangeMessage msg in quotesStorage.GetAll())
+							SendSnapshot(msg);
+					}
+					else
+					{
+						var quotesMsg = (QuoteChangeMessage)quotesStorage.Get(message.SecurityId);
+
+						if (quotesMsg != null)
+						{
+							//SendReply();
+							SendSnapshot(quotesMsg);
+						}
+					}
 				}
 			}
 		}
@@ -276,24 +267,29 @@ namespace StockSharp.Algo.Storages
 
 				try
 				{
+					var incremental = Settings.IsMode(StorageModes.Incremental);
+					var snapshot = Settings.IsMode(StorageModes.Snapshot);
+
 					foreach (var pair in Buffer.GetTicks())
 					{
-						Settings.GetStorage<ExecutionMessage>(pair.Key, ExecutionTypes.Tick).Save(pair.Value);
+						if (incremental)
+							Settings.GetStorage<ExecutionMessage>(pair.Key, ExecutionTypes.Tick).Save(pair.Value);
 					}
 
 					foreach (var pair in Buffer.GetOrderLog())
 					{
-						Settings.GetStorage<ExecutionMessage>(pair.Key, ExecutionTypes.OrderLog).Save(pair.Value);
+						if (incremental)
+							Settings.GetStorage<ExecutionMessage>(pair.Key, ExecutionTypes.OrderLog).Save(pair.Value);
 					}
 
 					foreach (var pair in Buffer.GetTransactions())
 					{
 						var secId = pair.Key;
 
-						if (Settings.IsMode(StorageModes.Incremental))
+						if (incremental)
 							Settings.GetStorage<ExecutionMessage>(secId, ExecutionTypes.Transaction).Save(pair.Value);
 
-						if (Settings.IsMode(StorageModes.Snapshot))
+						if (snapshot)
 						{
 							var snapshotStorage = GetSnapshotStorage(DataType.Transactions);
 
@@ -406,10 +402,10 @@ namespace StockSharp.Algo.Storages
 
 					foreach (var pair in Buffer.GetOrderBooks())
 					{
-						if (Settings.IsMode(StorageModes.Incremental))
+						if (incremental)
 							Settings.GetStorage<QuoteChangeMessage>(pair.Key, null).Save(pair.Value);
 						
-						if (Settings.IsMode(StorageModes.Snapshot))
+						if (snapshot)
 						{
 							var snapshotStorage = GetSnapshotStorage(DataType.MarketDepth);
 
@@ -422,21 +418,14 @@ namespace StockSharp.Algo.Storages
 					{
 						var messages = pair.Value.Where(m => m.Changes.Count > 0).ToArray();
 
-						var dt = DateTime.Today;
-
-						var historical = messages.Where(m => m.ServerTime < dt).ToArray();
-						var today = messages.Where(m => m.ServerTime >= dt).ToArray();
-
-						Settings.GetStorage<Level1ChangeMessage>(pair.Key, null).Save(historical);
-
-						if (Settings.IsMode(StorageModes.Incremental))
-							Settings.GetStorage<Level1ChangeMessage>(pair.Key, null).Save(today);
+						if (incremental)
+							Settings.GetStorage<Level1ChangeMessage>(pair.Key, null).Save(messages);
 						
 						if (Settings.IsMode(StorageModes.Snapshot))
 						{
 							var snapshotStorage = GetSnapshotStorage(DataType.Level1);
 
-							foreach (var message in today)
+							foreach (var message in messages)
 								snapshotStorage.Update(message);
 						}
 					}
@@ -450,10 +439,10 @@ namespace StockSharp.Algo.Storages
 					{
 						var messages = pair.Value.Where(m => m.Changes.Count > 0).ToArray();
 
-						if (Settings.IsMode(StorageModes.Incremental))
+						if (incremental)
 							Settings.GetStorage<PositionChangeMessage>(pair.Key, null).Save(messages);
 						
-						if (Settings.IsMode(StorageModes.Snapshot))
+						if (snapshot)
 						{
 							var snapshotStorage = GetSnapshotStorage(DataType.PositionChanges);
 

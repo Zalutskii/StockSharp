@@ -57,6 +57,30 @@
 		[DataMember]
 		public int DownloadCount { get; set; }
 
+		/// <summary>
+		/// Rating.
+		/// </summary>
+		[DataMember]
+		public decimal? Rating { get; set; }
+
+		/// <summary>
+		/// Internet address of help site.
+		/// </summary>
+		[DataMember]
+		public string DocUrl { get; set; }
+
+		/// <summary>
+		/// Product required connectors.
+		/// </summary>
+		[DataMember]
+		public bool IsRequiredConnectors { get; set; }
+
+		/// <summary>
+		/// Product required connectors.
+		/// </summary>
+		[DataMember]
+		public ProductContentTypes ContentType { get; set; }
+
 		/// <inheritdoc />
 		[DataMember]
 		public long OriginalTransactionId { get; set; }
@@ -84,6 +108,9 @@
 				Tags = Tags,
 				Author = Author,
 				DownloadCount = DownloadCount,
+				Rating = Rating,
+				DocUrl = DocUrl,
+				IsRequiredConnectors = IsRequiredConnectors,
 				OriginalTransactionId = OriginalTransactionId,
 			};
 			CopyTo(clone);

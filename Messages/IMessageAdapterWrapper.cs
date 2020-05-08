@@ -95,7 +95,7 @@ namespace StockSharp.Messages
 		/// <param name="message">The message.</param>
 		protected virtual void InnerAdapterNewOutMessage(Message message)
 		{
-			if (message.IsBack)
+			if (message.IsBack())
 				RaiseNewOutMessage(message);
 			else
 				OnInnerAdapterNewOutMessage(message);
@@ -141,6 +141,11 @@ namespace StockSharp.Messages
 			InnerAdapter.Resume();
 		}
 
+		void IMessageChannel.Clear()
+		{
+			InnerAdapter.Clear();
+		}
+
 		event Action IMessageChannel.StateChanged
 		{
 			add => InnerAdapter.StateChanged += value;
@@ -148,14 +153,14 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
-		/// Auto send <see cref="Message.IsBack"/> messages to <see cref="InnerAdapter"/>.
+		/// Auto send <see cref="Message.BackMode"/> messages to <see cref="InnerAdapter"/>.
 		/// </summary>
 		protected virtual bool SendInBackFurther => true;
 
 		/// <inheritdoc />
 		public virtual bool SendInMessage(Message message)
 		{
-			if (message.IsBack)
+			if (message.IsBack())
 			{
 				if (message.Adapter == this)
 				{
@@ -308,6 +313,9 @@ namespace StockSharp.Messages
 
 		/// <inheritdoc />
 		public virtual bool IsSupportCandlesUpdates => InnerAdapter.IsSupportCandlesUpdates;
+
+		/// <inheritdoc />
+		public virtual bool IsSupportCandlesPriceLevels => InnerAdapter.IsSupportCandlesPriceLevels;
 
 		/// <inheritdoc />
 		public virtual MessageAdapterCategories Categories => InnerAdapter.Categories;

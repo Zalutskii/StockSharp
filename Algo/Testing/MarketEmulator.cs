@@ -23,14 +23,13 @@ namespace StockSharp.Algo.Testing
 	using Ecng.Collections;
 	using Ecng.Common;
 
-	using MoreLinq;
-
 	using StockSharp.Algo.Commissions;
 	using StockSharp.Algo.PnL;
 	using StockSharp.Logging;
 	using StockSharp.Messages;
 	using StockSharp.Algo.Candles;
 	using StockSharp.Localization;
+	using StockSharp.BusinessEntities;
 
 	class LevelQuotes : IEnumerable<ExecutionMessage>
 	{
@@ -405,39 +404,21 @@ namespace StockSharp.Algo.Testing
 					{
 						var generatorMsg = (GeneratorMessage)message;
 
-						switch (generatorMsg.DataType)
-						{
-							case MarketDataTypes.MarketDepth:
-							{
-								_depthGenerator = generatorMsg.IsSubscribe
-										? (MarketDepthGenerator)generatorMsg.Generator
-										: null;
-
-								break;
-							}
-							case MarketDataTypes.Trades:
-							{
-								_tradeGenerator = generatorMsg.IsSubscribe
-										? (TradeGenerator)generatorMsg.Generator
-										: null;
-
-								break;
-							}
-							case MarketDataTypes.OrderLog:
-							{
-								_olGenerator = generatorMsg.IsSubscribe
-										? (OrderLogGenerator)generatorMsg.Generator
-										: null;
-
-								break;
-							}
-							default:
-								throw new ArgumentOutOfRangeException();
-						}
-
 						if (generatorMsg.IsSubscribe)
 						{
-							generatorMsg.Generator.Init();
+							var generator = generatorMsg.Generator;
+							var dataType = generatorMsg.DataType2;
+							
+							if (dataType == DataType.MarketDepth)
+								_depthGenerator = (MarketDepthGenerator)generator;
+							else if (dataType == DataType.Ticks)
+								_tradeGenerator = (TradeGenerator)generator;
+							else if (dataType == DataType.OrderLog)
+								_olGenerator = (OrderLogGenerator)generator;
+							else
+								throw new ArgumentOutOfRangeException();
+
+							generator.Init();
 
 							if (_securityDefinition != null)
 							{
@@ -449,8 +430,8 @@ namespace StockSharp.Algo.Testing
 									break;
 								}
 
-								ProcessGenerator(generatorMsg.Generator, _securityDefinition, result);
-								ProcessGenerator(generatorMsg.Generator, board, result);
+								ProcessGenerator(generator, _securityDefinition, result);
+								ProcessGenerator(generator, board, result);
 							}
 							else
 								this.AddWarningLog(LocalizedStrings.Str1150);
@@ -1103,12 +1084,16 @@ namespace StockSharp.Algo.Testing
 						_candleInfo.Remove(pair.Key);
 
 						foreach (var trade in pair.Value.Item2)
-							Process(trade, result);
+							result.Add(trade);
 
 						// change current time before the candle will be processed
 						result.Add(new TimeMessage { LocalTime = message.LocalTime });
 
-                        result.AddRange(pair.Value.Item1);
+						foreach (var candle in pair.Value.Item1)
+						{
+							candle.LocalTime = message.LocalTime;
+							result.Add(candle);
+						}
 					}
 				}
 			}
@@ -1720,10 +1705,25 @@ namespace StockSharp.Algo.Testing
 		/// <summary>
 		/// Initializes a new instance of the <see cref="MarketEmulator"/>.
 		/// </summary>
-		public MarketEmulator()
+		/// <param name="securityProvider">The provider of information about instruments.</param>
+		/// <param name="portfolioProvider">The portfolio to be used to register orders. If value is not given, the portfolio with default name Simulator will be created.</param>
+		public MarketEmulator(ISecurityProvider securityProvider, IPortfolioProvider portfolioProvider)
 		{
+			SecurityProvider = securityProvider ?? throw new ArgumentNullException(nameof(securityProvider));
+			PortfolioProvider = portfolioProvider ?? throw new ArgumentNullException(nameof(portfolioProvider));
+		
 			((IMessageAdapter)this).SupportedInMessages = ((IMessageAdapter)this).PossibleSupportedMessages.Select(i => i.Type).ToArray();
 		}
+
+		/// <summary>
+		/// The provider of information about instruments.
+		/// </summary>
+		public ISecurityProvider SecurityProvider { get; }
+
+		/// <summary>
+		/// The portfolio to be used to register orders. If value is not given, the portfolio with default name Simulator will be created.
+		/// </summary>
+		public IPortfolioProvider PortfolioProvider { get; }
 
 		/// <inheritdoc />
 		public MarketEmulatorSettings Settings { get; } = new MarketEmulatorSettings();
@@ -2082,6 +2082,11 @@ namespace StockSharp.Algo.Testing
 
 				_securityEmulatorsByBoard.SafeAdd(securityId.BoardCode).Add(emulator);
 
+				var sec = SecurityProvider.LookupById(securityId);
+
+				if (sec != null)
+					emulator.Process(sec.ToMessage(), new List<Message>());
+
 				var board = _boardDefinitions.TryGetValue(securityId.BoardCode);
 
 				if (board != null)
@@ -2188,6 +2193,9 @@ namespace StockSharp.Algo.Testing
 
 			if (secState == SecurityStates.Stoped)
 				return LocalizedStrings.SecurityStopped.Put(execMsg.SecurityId);
+
+			if (securityDefinition?.BasketCode.IsEmpty() == false)
+				return LocalizedStrings.SecurityNonTradable.Put(execMsg.SecurityId);
 
 			var priceStep = securityDefinition?.PriceStep;
 			var volumeStep = securityDefinition?.VolumeStep;
@@ -2310,6 +2318,7 @@ namespace StockSharp.Algo.Testing
 		bool IMessageAdapter.IsFullCandlesOnly => false;
 		bool IMessageAdapter.IsSupportSubscriptions => true;
 		bool IMessageAdapter.IsSupportCandlesUpdates => true;
+		bool IMessageAdapter.IsSupportCandlesPriceLevels => false;
 
 		MessageAdapterCategories IMessageAdapter.Categories => default;
 		OrderCancelVolumeRequireTypes? IMessageAdapter.OrderCancelVolumeRequired => null;
@@ -2355,6 +2364,10 @@ namespace StockSharp.Algo.Testing
 		{
 		}
 
+		void IMessageChannel.Clear()
+		{
+		}
+
 		event Action IMessageChannel.StateChanged
 		{
 			add { }
@@ -2363,7 +2376,7 @@ namespace StockSharp.Algo.Testing
 
 		IMessageChannel ICloneable<IMessageChannel>.Clone()
 		{
-			return new MarketEmulator();
+			return new MarketEmulator(SecurityProvider, PortfolioProvider);
 		}
 
 		object ICloneable.Clone()

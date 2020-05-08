@@ -10,12 +10,12 @@
     <ApplicationIcon>..\..\..\stocksharp.ico</ApplicationIcon>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="..\SampleHistoryTesting\SmaStrategy.cs" Link="SmaStrategy.cs" />
+  </ItemGroup>
+  <ItemGroup>
     <Resource Include="..\..\..\stocksharp.ico">
       <Link>stocksharp.ico</Link>
     </Resource>
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="..\..\HistoryDataHelper.cs" Link="HistoryDataHelper.cs" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="StockSharp.SampleHistoryData" Version="$(SampleHistoryDataVersion)" />

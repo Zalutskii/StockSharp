@@ -17,10 +17,10 @@
     </Resource>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="StockSharp.Xaml.Charting" Version="5.*" />
+    <Compile Include="..\SampleHistoryTesting\SmaStrategy.cs" Link="SmaStrategy.cs" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\..\HistoryDataHelper.cs" Link="HistoryDataHelper.cs" />
+    <PackageReference Include="StockSharp.Xaml.Charting" Version="5.*" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="StockSharp.SampleHistoryData" Version="$(SampleHistoryDataVersion)" />

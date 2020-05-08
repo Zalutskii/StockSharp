@@ -16,7 +16,7 @@ namespace StockSharp.Algo.Testing
 	using StockSharp.Localization;
     using StockSharp.Logging;
 
-	using SourceKey = System.Tuple<Messages.SecurityId, Messages.MarketDataTypes, object>;
+	using SourceKey = System.Tuple<Messages.SecurityId, Messages.DataType>;
 
     /// <summary>
     /// The adapter, receiving messages form the storage <see cref="IStorageRegistry"/>.
@@ -35,10 +35,6 @@ namespace StockSharp.Algo.Testing
 		private CancellationTokenSource _cancellationToken;
 
 		private bool _isChanged;
-
-		private bool _isSuspended;
-		private readonly SyncObject _suspendLock = new SyncObject();
-
 		private bool _isStarted;
 
 		/// <summary>
@@ -203,6 +199,9 @@ namespace StockSharp.Algo.Testing
 		public override bool IsFullCandlesOnly => false;
 
 		/// <inheritdoc />
+		public override bool IsSupportCandlesUpdates => true;
+
+		/// <inheritdoc />
 		public override IEnumerable<object> GetCandleArgs(Type candleType, SecurityId securityId, DateTimeOffset? from, DateTimeOffset? to)
 		{
 			var drive = DriveInternal;
@@ -210,19 +209,17 @@ namespace StockSharp.Algo.Testing
 			if (drive == null)
 				return Enumerable.Empty<object>();
 
-			var dataType = candleType.ToCandleMarketDataType();
-
 			var args = _historySources
-	             .Where(t => t.Key.Item2 == dataType && (t.Key.Item1 == securityId || t.Key.Item1.IsDefault()))
-	             .Select(s => s.Key.Item3)
+	             .Where(t => t.Key.Item2.MessageType == candleType && (t.Key.Item1 == securityId || t.Key.Item1.IsDefault()))
+	             .Select(s => s.Key.Item2.Arg)
 	             .ToArray();
 
 			if (args.Length > 0)
 				return args;
 
 			args = _generators
-	             .Where(t => t.Key.Item2 == dataType && (t.Key.Item1 == securityId || t.Key.Item1.IsDefault()))
-	             .Select(s => s.Key.Item3)
+	             .Where(t => t.Key.Item2.MessageType == candleType && (t.Key.Item1 == securityId || t.Key.Item1.IsDefault()))
+	             .Select(s => s.Key.Item2.Arg)
 	             .ToArray();
 
 			if (args.Length > 0)
@@ -242,9 +239,6 @@ namespace StockSharp.Algo.Testing
 			{
 				case MessageTypes.Reset:
 				{
-					_isSuspended = false;
-					_suspendLock.Pulse();
-
 					_currentTime = default;
 
 					_generators.Clear();
@@ -274,9 +268,6 @@ namespace StockSharp.Algo.Testing
 
 				case MessageTypes.Disconnect:
 				{
-					_isSuspended = false;
-					_suspendLock.Pulse();
-
 					_isStarted = false;
 
 					SendOutMessage(new DisconnectMessage { LocalTime = StopDate });
@@ -313,7 +304,7 @@ namespace StockSharp.Algo.Testing
 				{
 					var sourceMsg = (HistorySourceMessage)message;
 
-					var key = Tuple.Create(sourceMsg.SecurityId, sourceMsg.DataType, sourceMsg.Arg);
+					var key = Tuple.Create(sourceMsg.SecurityId, sourceMsg.DataType2);
 
 					if (sourceMsg.IsSubscribe)
 						_historySources[key] = sourceMsg.GetMessages;
@@ -326,55 +317,32 @@ namespace StockSharp.Algo.Testing
 				case ExtendedMessageTypes.EmulationState:
 				{
 					var stateMsg = (EmulationStateMessage)message;
-					var isSuspended = false;
 
 					switch (stateMsg.State)
 					{
 						case EmulationStates.Starting:
 						{
-							if (_isStarted)
-							{
-								_isSuspended = false;
-								_suspendLock.Pulse();
-							}
-							else
-							{
-								_isStarted = true;
+							if (!_isStarted)
 								Start(stateMsg.StartDate.IsDefault() ? StartDate : stateMsg.StartDate, stateMsg.StopDate.IsDefault() ? StopDate : stateMsg.StopDate);
-							}
 
-							break;
-						}
-
-						case EmulationStates.Suspending:
-						{
-							_isSuspended = true;
-							isSuspended = true;
 							break;
 						}
 
 						case EmulationStates.Stopping:
 						{
-							_isSuspended = false;
-							_suspendLock.Pulse();
-
 							Stop();
 							break;
 						}
 					}
 
-					SendOutMessage(message);
-
-					if (isSuspended)
-						SendOutMessage(new EmulationStateMessage { State = EmulationStates.Suspended });
-
+					SendOutMessage(stateMsg);
 					break;
 				}
 
 				case ExtendedMessageTypes.Generator:
 				{
 					var generatorMsg = (GeneratorMessage)message;
-					var item = Tuple.Create(generatorMsg.SecurityId, generatorMsg.DataType, generatorMsg.Arg);
+					var item = Tuple.Create(generatorMsg.SecurityId, generatorMsg.DataType2);
 
 					if (generatorMsg.IsSubscribe)
 						_generators.Add(item, generatorMsg.Generator);
@@ -427,8 +395,7 @@ namespace StockSharp.Algo.Testing
 
 			var isSubscribe = message.IsSubscribe;
 			var securityId = message.SecurityId;
-			var dataType = message.DataType;
-			var arg = message.Arg;
+			var dataType = message.DataType2;
 			var transId = message.TransactionId;
 			var originId = message.OriginalTransactionId;
 
@@ -447,23 +414,18 @@ namespace StockSharp.Algo.Testing
 			Func<DateTimeOffset, IEnumerable<Message>> GetHistorySource()
 			{
 				Func<DateTimeOffset, IEnumerable<Message>> GetHistorySource2(SecurityId s)
-				{
-					return _historySources.TryGetValue(Tuple.Create(s, dataType, arg));
-				}
+					=> _historySources.TryGetValue(Tuple.Create(s, dataType));
 
 				return GetHistorySource2(securityId) ?? GetHistorySource2(default);
 			}
 
 			Exception error = null;
 
-			switch (dataType)
+			if (dataType == DataType.Level1)
 			{
-				case MarketDataTypes.Level1:
+				if (isSubscribe)
 				{
-					if (_generators.ContainsKey(Tuple.Create(securityId, dataType, arg)))
-						break;
-
-					if (isSubscribe)
+					if (!_generators.ContainsKey(Tuple.Create(securityId, dataType)))
 					{
 						var historySource = GetHistorySource();
 
@@ -486,21 +448,18 @@ namespace StockSharp.Algo.Testing
 							AddStorage(new InMemoryMarketDataStorage<Level1ChangeMessage>(securityId, null, historySource), transId);
 						}
 					}
-					else
-					{
-						RemoveStorage(originId);
-						//RemoveStorage<InMemoryMarketDataStorage<ClearingMessage>>(security, ExtendedMessageTypes.Clearing, null);
-					}
-
-					break;
 				}
-
-				case MarketDataTypes.MarketDepth:
+				else
 				{
-					if (_generators.ContainsKey(Tuple.Create(securityId, dataType, arg)))
-						break;
-
-					if (isSubscribe)
+					RemoveStorage(originId);
+					//RemoveStorage<InMemoryMarketDataStorage<ClearingMessage>>(security, ExtendedMessageTypes.Clearing, null);
+				}
+			}
+			else if (dataType == DataType.MarketDepth)
+			{
+				if (isSubscribe)
+				{
+					if (!_generators.ContainsKey(Tuple.Create(securityId, dataType)))
 					{
 						var historySource = GetHistorySource();
 
@@ -509,18 +468,15 @@ namespace StockSharp.Algo.Testing
 							: new InMemoryMarketDataStorage<QuoteChangeMessage>(securityId, null, historySource),
 							transId);
 					}
-					else
-						RemoveStorage(originId);
-					
-					break;
 				}
-
-				case MarketDataTypes.Trades:
+				else
+					RemoveStorage(originId);
+			}
+			else if (dataType == DataType.Ticks)
+			{
+				if (isSubscribe)
 				{
-					if (_generators.ContainsKey(Tuple.Create(securityId, dataType, arg)))
-						break;
-
-					if (isSubscribe)
+					if (!_generators.ContainsKey(Tuple.Create(securityId, dataType)))
 					{
 						var historySource = GetHistorySource();
 
@@ -529,18 +485,15 @@ namespace StockSharp.Algo.Testing
 							: new InMemoryMarketDataStorage<ExecutionMessage>(securityId, null, historySource),
 							transId);
 					}
-					else
-						RemoveStorage(originId);
-					
-					break;
 				}
-
-				case MarketDataTypes.OrderLog:
+				else
+					RemoveStorage(originId);
+			}
+			else if (dataType == DataType.OrderLog)
+			{
+				if (isSubscribe)
 				{
-					if (_generators.ContainsKey(Tuple.Create(securityId, dataType, arg)))
-						break;
-
-					if (isSubscribe)
+					if (!_generators.ContainsKey(Tuple.Create(securityId, dataType)))
 					{
 						var historySource = GetHistorySource();
 
@@ -549,43 +502,36 @@ namespace StockSharp.Algo.Testing
 							: new InMemoryMarketDataStorage<ExecutionMessage>(securityId, null, historySource),
 							transId);
 					}
-					else
-						RemoveStorage(originId);
-
-					break;
 				}
+				else
+					RemoveStorage(originId);
+			}
+			else if (dataType.IsCandles)
+			{
 
-				default:
+				if (isSubscribe)
 				{
-					if (dataType.IsCandleDataType())
+					if (_generators.ContainsKey(Tuple.Create(securityId, DataType.Ticks)))
 					{
-						if (_generators.ContainsKey(Tuple.Create(securityId, MarketDataTypes.Trades, arg)))
-						{
-							if (isSubscribe)
-								SendSubscriptionNotSupported(transId);
-
-							return;
-						}
-
-						if (isSubscribe)
-						{
-							var historySource = GetHistorySource();
-							var candleType = dataType.ToCandleMessage();
-
-							AddStorage(historySource == null
-									? StorageRegistry.GetCandleMessageStorage(candleType, securityId, arg, Drive, StorageFormat)
-									: new InMemoryMarketDataStorage<CandleMessage>(securityId, arg, historySource, candleType),
-								transId);
-						}
-						else
-							RemoveStorage(originId);
-
-						break;
+						SendSubscriptionNotSupported(transId);
+						return;
 					}
 
-					error = new InvalidOperationException(LocalizedStrings.Str1118Params.Put(dataType));
-					break;
+					var historySource = GetHistorySource();
+					var candleType = dataType.MessageType;
+					var arg = message.GetArg();
+
+					AddStorage(historySource == null
+							? StorageRegistry.GetCandleMessageStorage(candleType, securityId, arg, Drive, StorageFormat)
+							: new InMemoryMarketDataStorage<CandleMessage>(securityId, arg, historySource, candleType),
+						transId);
 				}
+				else
+					RemoveStorage(originId);
+			}
+			else
+			{
+				error = new InvalidOperationException(LocalizedStrings.Str1118Params.Put(dataType));
 			}
 
 			SendSubscriptionReply(transId, error);
@@ -598,6 +544,8 @@ namespace StockSharp.Algo.Testing
 		/// <param name="stopDate">Date in history to stop the paper trading (date is included).</param>
 		private void Start(DateTimeOffset startDate, DateTimeOffset stopDate)
 		{
+			_isStarted = true;
+
 			_cancellationToken = new CancellationTokenSource();
 
 			ThreadingHelper
@@ -684,9 +632,6 @@ namespace StockSharp.Algo.Testing
 			{
 				if (_isChanged || token.IsCancellationRequested)
 					break;
-
-				while (_isSuspended)
-					_suspendLock.Wait();
 
 				var serverTime = msg.GetServerTime();
 

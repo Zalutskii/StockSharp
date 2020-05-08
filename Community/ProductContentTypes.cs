@@ -6,10 +6,10 @@ namespace StockSharp.Community
 	using StockSharp.Localization;
 
 	/// <summary>
-	/// Strategy content types.
+	/// Product content types.
 	/// </summary>
 	[DataContract]
-	public enum StrategyContentTypes
+	public enum ProductContentTypes
 	{
 		/// <summary>
 		/// Source code (if the strategy is distributed in source code).
@@ -52,5 +52,12 @@ namespace StockSharp.Community
 		[EnumMember]
 		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.Str1981Key)]
 		Indicator,
+
+		/// <summary>
+		/// Connector.
+		/// </summary>
+		[EnumMember]
+		[Display(ResourceType = typeof(LocalizedStrings), Name = LocalizedStrings.ConnectorKey)]
+		Connector,
 	}
 }

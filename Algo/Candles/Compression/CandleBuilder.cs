@@ -172,7 +172,6 @@ namespace StockSharp.Algo.Candles.Compression
 
 			var price = transform.Price;
 			var volume = transform.Volume;
-			var oi = transform.OpenInterest;
 
 			candle.SecurityId = message.SecurityId;
 
@@ -190,7 +189,8 @@ namespace StockSharp.Algo.Candles.Compression
 			if (volume != null)
 				candle.TotalVolume = volume.Value;
 
-			candle.OpenInterest = oi;
+			candle.OpenInterest = transform.OpenInterest;
+			candle.PriceLevels = transform.PriceLevels;
 
 			candle.TotalTicks = 1;
 
@@ -214,7 +214,6 @@ namespace StockSharp.Algo.Candles.Compression
 			var price = transform.Price;
 			var time = transform.Time;
 			var volume = transform.Volume;
-			var oi = transform.OpenInterest;
 
 			if (price < candle.LowPrice)
 			{
@@ -248,7 +247,49 @@ namespace StockSharp.Algo.Candles.Compression
 
 			candle.CloseTime = time;
 
-			candle.OpenInterest = oi;
+			candle.OpenInterest = transform.OpenInterest;
+
+			if (transform.PriceLevels != null)
+			{
+				if (candle.PriceLevels == null)
+					candle.PriceLevels = transform.PriceLevels.Select(l => l.TypedClone());
+				else
+				{
+					var dict = candle.PriceLevels.ToDictionary(l => l.Price);
+
+					foreach (var level in transform.PriceLevels)
+					{
+						if (dict.TryGetValue(level.Price, out var currLevel))
+						{
+							currLevel.BuyCount += level.BuyCount;
+							currLevel.SellCount += level.SellCount;
+							currLevel.BuyVolume += level.BuyVolume;
+							currLevel.SellVolume += level.SellVolume;
+							currLevel.TotalVolume += level.TotalVolume;
+							
+							if (level.BuyVolumes != null)
+							{
+								if (currLevel.BuyVolumes == null)
+									currLevel.BuyVolumes = level.BuyVolumes.ToArray();
+								else
+									currLevel.BuyVolumes = currLevel.BuyVolumes.Concat(level.BuyVolumes).ToArray();
+							}
+
+							if (currLevel.SellVolumes != null && level.SellVolumes != null)
+							{
+								if (currLevel.SellVolumes == null)
+									currLevel.SellVolumes = level.SellVolumes.ToArray();
+								else
+									currLevel.SellVolumes = currLevel.SellVolumes.Concat(level.SellVolumes).ToArray();
+							}
+						}
+						else
+							dict.Add(level.Price, level);
+					}
+
+					candle.PriceLevels = dict.Values.ToArray();
+				}
+			}
 
 			if (candle.TotalTicks != null)
 				candle.TotalTicks++;
@@ -505,7 +546,7 @@ namespace StockSharp.Algo.Candles.Compression
 
 			return FirstInitCandle(message, new TickCandleMessage
 			{
-				MaxTradeCount = (int)message.Arg,
+				MaxTradeCount = message.GetArg<int>(),
 				OpenTime = time,
 				CloseTime = time,
 				HighTime = time,
@@ -541,7 +582,7 @@ namespace StockSharp.Algo.Candles.Compression
 
 			return FirstInitCandle(message, new VolumeCandleMessage
 			{
-				Volume = (decimal)message.Arg,
+				Volume = message.GetArg<decimal>(),
 				OpenTime = time,
 				CloseTime = time,
 				HighTime = time,
@@ -577,7 +618,7 @@ namespace StockSharp.Algo.Candles.Compression
 
 			return FirstInitCandle(message, new RangeCandleMessage
 			{
-				PriceRange = (Unit)message.Arg,
+				PriceRange = message.GetArg<Unit>(),
 				OpenTime = time,
 				CloseTime = time,
 				HighTime = time,
@@ -617,7 +658,7 @@ namespace StockSharp.Algo.Candles.Compression
 			var side = transform.Side;
 			var oi = transform.OpenInterest;
 
-			var pnf = (PnFArg)message.Arg;
+			var pnf = message.GetArg<PnFArg>();
 			var pnfStep = (decimal)(1 * pnf.BoxSize);
 
 			if (currentPnFCandle == null)
@@ -769,7 +810,7 @@ namespace StockSharp.Algo.Candles.Compression
 			var side = transform.Side;
 			var oi = transform.OpenInterest;
 
-			var boxSize = (Unit)message.Arg;
+			var boxSize = message.GetArg<Unit>();
 			var renkoStep = (decimal)(1 * boxSize);
 
 			if (currentRenkoCandle == null)

@@ -41,6 +41,7 @@ namespace SampleHistoryTesting
 	using StockSharp.Messages;
 	using StockSharp.Xaml.Charting;
 	using StockSharp.Localization;
+	using StockSharp.Configuration;
 
 	public partial class MainWindow
 	{
@@ -76,7 +77,7 @@ namespace SampleHistoryTesting
 		{
 			InitializeComponent();
 
-			HistoryPath.Folder = StockSharp.Samples.HistoryDataHelper.DataPath;
+			HistoryPath.Folder = Paths.HistoryDataPath;
 
 			if (LocalizedStrings.ActiveLanguage == Languages.Russian)
 			{
@@ -342,9 +343,6 @@ namespace SampleHistoryTesting
 			if (OrderLogCheckBox.IsChecked == true)
 				startTime = startTime.Subtract(TimeSpan.FromDays(1)).AddHours(18).AddMinutes(45).AddTicks(1).ApplyMoscow().UtcDateTime;
 
-			// ProgressBar refresh step
-			var progressStep = ((stopTime - startTime).Ticks / 100).To<TimeSpan>();
-
 			// set ProgressBar bounds
 			_progressBars.ForEach(p =>
 			{
@@ -438,7 +436,7 @@ namespace SampleHistoryTesting
 				var series = new CandleSeries(typeof(TimeFrameCandle), security, timeFrame)
 				{
 					BuildCandlesMode = emulationInfo.UseCandleTimeFrame == null ? MarketDataBuildModes.Build : MarketDataBuildModes.Load,
-					BuildCandlesFrom = emulationInfo.UseOrderLog ? (MarketDataTypes?)MarketDataTypes.OrderLog : null,
+					BuildCandlesFrom2 = emulationInfo.UseOrderLog ? DataType.OrderLog : null,
 				};
 
 				_shortMa = new SimpleMovingAverage { Length = 10 };
@@ -462,7 +460,7 @@ namespace SampleHistoryTesting
 				chart.AddElement(_area, _longElem);
 
 				// create strategy based on 80 5-min и 10 5-min
-				var strategy = new SmaStrategy(chart, _candlesElem, _tradesElem, _shortMa, _shortElem, _longMa, _longElem, series)
+				var strategy = new SmaStrategy(series, _longMa, _shortMa, chart, _candlesElem, _tradesElem, _longElem, _shortElem)
 				{
 					Volume = 1,
 					Portfolio = portfolio,
@@ -480,7 +478,7 @@ namespace SampleHistoryTesting
 				if (emulationInfo.CustomHistoryAdapter != null)
 				{
 					connector.Adapter.InnerAdapters.Remove(connector.MarketDataAdapter);
-					connector.Adapter.InnerAdapters.Add(new EmulationMessageAdapter(emulationInfo.CustomHistoryAdapter(connector.TransactionIdGenerator), new MessageByLocalTimeQueue(), true));
+					connector.Adapter.InnerAdapters.Add(new EmulationMessageAdapter(emulationInfo.CustomHistoryAdapter(connector.TransactionIdGenerator), new InMemoryMessageChannel(new MessageByLocalTimeQueue(), "History out", err => err.LogError()), true, connector.EmulationAdapter.Emulator.SecurityProvider, connector.EmulationAdapter.Emulator.PortfolioProvider));
 				}
 
 				// set history range
@@ -580,18 +578,7 @@ namespace SampleHistoryTesting
 					set.Item7.Draw(data);
 				};
 
-				var nextTime = startTime + progressStep;
-
-				// handle historical time for update ProgressBar
-				connector.MarketTimeChanged += d =>
-				{
-					if (connector.CurrentTime < nextTime && connector.CurrentTime < stopTime)
-						return;
-
-					var steps = (connector.CurrentTime - startTime).Ticks / progressStep.Ticks + 1;
-					nextTime = startTime + (steps * progressStep.Ticks).To<TimeSpan>();
-					this.GuiAsync(() => progressBar.Value = steps);
-				};
+				connector.ProgressChanged += steps => this.GuiAsync(() => progressBar.Value = steps);
 
 				connector.StateChanged += () =>
 				{

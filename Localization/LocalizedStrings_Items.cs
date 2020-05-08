@@ -51466,5 +51466,55 @@ namespace StockSharp.Localization
 		/// UDP Dumper
 		/// </summary>
 		public static string UdpDumper => GetString(UdpDumperKey);
+
+		/// <summary>
+		/// Option margin
+		/// </summary>
+		public const string OptionMarginKey = nameof(OptionMargin);
+
+		/// <summary>
+		/// Option margin
+		/// </summary>
+		public static string OptionMargin => GetString(OptionMarginKey);
+
+		/// <summary>
+		/// Option margin leverage.
+		/// </summary>
+		public const string OptionMarginDescKey = nameof(OptionMarginDesc);
+
+		/// <summary>
+		/// Option margin leverage.
+		/// </summary>
+		public static string OptionMarginDesc => GetString(OptionMarginDescKey);
+
+		/// <summary>
+		/// Option (synthetic)
+		/// </summary>
+		public const string OptionSyntheticMarginKey = nameof(OptionSyntheticMargin);
+
+		/// <summary>
+		/// Option (synthetic)
+		/// </summary>
+		public static string OptionSyntheticMargin => GetString(OptionSyntheticMarginKey);
+
+		/// <summary>
+		/// Synthetic option position margin leverage.
+		/// </summary>
+		public const string OptionSyntheticMarginDescKey = nameof(OptionSyntheticMarginDesc);
+
+		/// <summary>
+		/// Synthetic option position margin leverage.
+		/// </summary>
+		public static string OptionSyntheticMarginDesc => GetString(OptionSyntheticMarginDescKey);
+
+		/// <summary>
+		/// Security '{0}' is no tradable.
+		/// </summary>
+		public const string SecurityNonTradableKey = nameof(SecurityNonTradable);
+
+		/// <summary>
+		/// Security '{0}' is no tradable.
+		/// </summary>
+		public static string SecurityNonTradable => GetString(SecurityNonTradableKey);
 	}
 }

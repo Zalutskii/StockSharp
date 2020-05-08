@@ -73,7 +73,7 @@
 				{
 					var mdMsg = (MarketDataMessage)message;
 
-					if (mdMsg.DataType == MarketDataTypes.MarketDepth)
+					if (mdMsg.DataType2 == DataType.MarketDepth)
 					{
 						if (mdMsg.IsSubscribe)
 						{
@@ -151,7 +151,7 @@
 					}
 					case QuoteChangeStates.SnapshotBuilding:
 					{
-						if (newState != QuoteChangeStates.SnapshotComplete)
+						if (newState != QuoteChangeStates.SnapshotBuilding && newState != QuoteChangeStates.SnapshotComplete)
 							this.AddDebugLog($"{currState}->{newState}");
 
 						break;
@@ -171,22 +171,32 @@
 			{
 				CheckSwitch();
 
+				if (newState == QuoteChangeStates.SnapshotStarted)
+				{
+					info.Bids.Clear();
+					info.Asks.Clear();
+				}
+
 				switch (currState)
 				{
 					case _none:
-					case QuoteChangeStates.SnapshotStarted:
 					{
 						info.Bids.Clear();
 						info.Asks.Clear();
 
 						break;
 					}
+					case QuoteChangeStates.SnapshotStarted:
+						break;
 					case QuoteChangeStates.SnapshotBuilding:
 						break;
 					case QuoteChangeStates.SnapshotComplete:
 					{
-						info.Bids.Clear();
-						info.Asks.Clear();
+						if (newState == QuoteChangeStates.SnapshotComplete)
+						{
+							info.Bids.Clear();
+							info.Asks.Clear();
+						}
 
 						break;
 					}
@@ -315,18 +325,18 @@
 
 				case MessageTypes.SubscriptionOnline:
 				{
-					var onlineMsg = (SubscriptionOnlineMessage)message;
+					var id = ((SubscriptionOnlineMessage)message).OriginalTransactionId;
 
 					lock (_syncObject)
 					{
-						var info = _byId.TryGetValue(onlineMsg.OriginalTransactionId);
+						var info = _byId.TryGetValue(id);
 
 						if (info != null)
 						{
 							if (_online.TryGetValue(info.SecurityId, out var online))
 							{
-								online.SubscriptionIds.Add(onlineMsg.OriginalTransactionId);
-								_byId.Remove(onlineMsg.OriginalTransactionId);
+								online.SubscriptionIds.Add(id);
+								_byId.Remove(id);
 							}
 							else
 							{

@@ -5180,6 +5180,11 @@ OrdersMargin;Orders (margin);Заявки (маржа)
 LicenseNotSupportPlatform;License N{0} is not support on current platform.;Лицензия N{0} не поддерживается на текущей платформе.
 OS;OS;ОС
 UdpDumper;UDP Dumper;UDP Dumper
+OptionMargin;Option margin;Опционы ГО
+OptionMarginDesc;Option margin leverage.;Гарантийное обеспечение на опцион.
+OptionSyntheticMargin;Option (synthetic);Опцион (синтетика)
+OptionSyntheticMarginDesc;Synthetic option position margin leverage.;Гарантийное обеспечение на синтетическую опционную позицию.
+SecurityNonTradable;Security '{0}' is no tradable.;Инструмент '{0}' не является торгуемым.
 DocStr0;Button activation alert settings;Кнопка активации настроек сигнала
 DocStr1;Initializes a new instance of the {0};Создать {0}
 DocStr2;Load settings;Загрузить настройки
@@ -13794,7 +13799,7 @@ DocStr9051;Strategy subscriptions signed by {0};Подписки на страт
 DocStr9052;A new strategy was created in the store;Новая стратегия была добавлена в магазин
 DocStr9053;Existing strategy was updated in the store;Стратегия была обновлена в магазине
 DocStr9054;Existing strategy was deleted from the store;Стратегия была удалена из магазина
-DocStr9056;Strategy content types;Типы контента стратегии
+DocStr9056;Product content types;Типы контента продукта
 DocStr9057;Schema in visual designer (if the strategy is distributed as a schema);Схема визуального дизайнера (если стратегия распространяется как схема)
 DocStr9058;Encrypted version of {0};Зашифрованная версия {0}
 DocStr9059;Strategy price types;Типы цены стратегии

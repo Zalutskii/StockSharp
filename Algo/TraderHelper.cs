@@ -1305,6 +1305,9 @@ namespace StockSharp.Algo
 			if (order == null)
 				throw new ArgumentNullException(nameof(order));
 
+			if (depth.Security != order.Security)
+				throw new ArgumentException(nameof(order));
+
 			order = order.ReRegisterClone();
 			depth = depth.Clone();
 
@@ -1316,7 +1319,7 @@ namespace StockSharp.Algo
 
 			var trades = new List<MyTrade>();
 
-			using (IMarketEmulator emulator = new MarketEmulator())
+			using (IMarketEmulator emulator = new MarketEmulator(new CollectionSecurityProvider(new[] { order.Security }), new CollectionPortfolioProvider(new[] { testPf })))
 			{
 				var errors = new List<Exception>();
 
@@ -1811,19 +1814,19 @@ namespace StockSharp.Algo
 			if (criteria.ExpiryDate != null && security.ExpiryDate != null && security.ExpiryDate != criteria.ExpiryDate)
 				return false;
 
-			if (criteria.ExtensionInfo != null && criteria.ExtensionInfo.Count > 0)
-			{
-				if (security.ExtensionInfo == null)
-					return false;
+			//if (criteria.ExtensionInfo != null && criteria.ExtensionInfo.Count > 0)
+			//{
+			//	if (security.ExtensionInfo == null)
+			//		return false;
 
-				foreach (var pair in criteria.ExtensionInfo)
-				{
-					var value = security.ExtensionInfo.TryGetValue(pair.Key);
+			//	foreach (var pair in criteria.ExtensionInfo)
+			//	{
+			//		var value = security.ExtensionInfo.TryGetValue(pair.Key);
 
-					if (!pair.Value.Equals(value))
-						return false;
-				}
-			}
+			//		if (!pair.Value.Equals(value))
+			//			return false;
+			//	}
+			//}
 
 			return true;
 		}
@@ -1839,14 +1842,8 @@ namespace StockSharp.Algo
 			if (securities == null)
 				throw new ArgumentNullException(nameof(securities));
 
-			if (criteria == null)
-				throw new ArgumentNullException(nameof(criteria));
-
 			if (criteria.IsLookupAll())
 				return securities.ToArray();
-
-			//if (!criteria.SecurityId.IsDefault())
-			//	return securities.Where(s => s.Id == criteria.Id).ToArray();
 
 			return securities.Where(s => s.IsMatch(criteria, criteria.GetSecurityTypes())).ToArray();
 		}
@@ -1873,127 +1870,11 @@ namespace StockSharp.Algo
 			if (securities == null)
 				throw new ArgumentNullException(nameof(securities));
 
-			if (criteria == null)
-				throw new ArgumentNullException(nameof(criteria));
-
 			if (criteria.IsLookupAll())
 				return securities.ToArray();
 
-			var secId = criteria.SecurityId;
-			var secCode = secId.SecurityCode;
-			var boardCode = secId.BoardCode;
-
-			if (!secCode.IsEmpty() && !boardCode.IsEmpty())
-			{
-				var id = secId.ToStringId();
-				return securities.Where(s => s.Id.CompareIgnoreCase(id)).ToArray();
-			}
-
-			var secTypes = criteria.GetSecurityTypes();
-			var underSecCode = criteria.UnderlyingSecurityCode;
-
-			return securities.Where(s =>
-			{
-				if (!secCode.IsEmpty() && !s.Code.ContainsIgnoreCase(secCode))
-					return false;
-
-				if (!boardCode.IsEmpty())
-				{
-					if (s.Board != null && !s.Board.Code.CompareIgnoreCase(boardCode))
-						return false;
-				}
-
-				if (secTypes.Count > 0)
-				{
-					if (s.Type == null || !secTypes.Contains(s.Type.Value))
-						return false;
-				}
-
-				if (!underSecCode.IsEmpty() && !s.UnderlyingSecurityId.ContainsIgnoreCase(underSecCode))
-					return false;
-
-				if (criteria.Strike != null && s.Strike != criteria.Strike)
-					return false;
-
-				if (criteria.OptionType != null && s.OptionType != criteria.OptionType)
-					return false;
-
-				if (criteria.Currency != null && s.Currency != criteria.Currency)
-					return false;
-
-				if (!criteria.Class.IsEmptyOrWhiteSpace() && !s.Class.ContainsIgnoreCase(criteria.Class))
-					return false;
-
-				if (!criteria.Name.IsEmptyOrWhiteSpace() && !s.Name.ContainsIgnoreCase(criteria.Name))
-					return false;
-
-				if (!criteria.ShortName.IsEmptyOrWhiteSpace() && !s.ShortName.ContainsIgnoreCase(criteria.ShortName))
-					return false;
-
-				if (!criteria.CfiCode.IsEmptyOrWhiteSpace() && !s.CfiCode.ContainsIgnoreCase(criteria.CfiCode))
-					return false;
-
-				if (!secId.Bloomberg.IsEmptyOrWhiteSpace() && !s.ExternalId.Bloomberg.ContainsIgnoreCase(secId.Bloomberg))
-					return false;
-
-				if (!secId.Cusip.IsEmptyOrWhiteSpace() && !s.ExternalId.Cusip.ContainsIgnoreCase(secId.Cusip))
-					return false;
-
-				if (!secId.IQFeed.IsEmptyOrWhiteSpace() && !s.ExternalId.IQFeed.ContainsIgnoreCase(secId.IQFeed))
-					return false;
-
-				if (!secId.Isin.IsEmptyOrWhiteSpace() && !s.ExternalId.Isin.ContainsIgnoreCase(secId.Isin))
-					return false;
-
-				if (!secId.Ric.IsEmptyOrWhiteSpace() && !s.ExternalId.Ric.ContainsIgnoreCase(secId.Ric))
-					return false;
-
-				if (!secId.Sedol.IsEmptyOrWhiteSpace() && !s.ExternalId.Sedol.ContainsIgnoreCase(secId.Sedol))
-					return false;
-
-				if (criteria.ExpiryDate != null && s.ExpiryDate != null && s.ExpiryDate != criteria.ExpiryDate)
-					return false;
-
-				if (criteria.IssueDate != null && s.IssueDate != null && s.IssueDate != criteria.IssueDate)
-					return false;
-
-				if (criteria.IssueSize != null && s.IssueSize != null && s.IssueSize != criteria.IssueSize)
-					return false;
-
-				if (criteria.UnderlyingSecurityType != null && s.UnderlyingSecurityType != null && s.UnderlyingSecurityType != criteria.UnderlyingSecurityType)
-					return false;
-
-				if (criteria.MinVolume != null && s.MinVolume != null && s.MinVolume != criteria.MinVolume)
-					return false;
-
-				if (criteria.MaxVolume != null && s.MaxVolume != null && s.MaxVolume != criteria.MaxVolume)
-					return false;
-
-				if (criteria.UnderlyingSecurityMinVolume != null && s.UnderlyingSecurityMinVolume != null && s.UnderlyingSecurityMinVolume != criteria.UnderlyingSecurityMinVolume)
-					return false;
-
-				if (criteria.Shortable != null && s.Shortable != null && s.Shortable != criteria.Shortable)
-					return false;
-
-				if (criteria.FaceValue != null && s.FaceValue != null && s.FaceValue != criteria.FaceValue)
-					return false;
-
-				if (criteria.ExtensionInfo != null && criteria.ExtensionInfo.Count > 0)
-				{
-					if (s.ExtensionInfo == null)
-						return false;
-
-					foreach (var pair in criteria.ExtensionInfo)
-					{
-						var value = s.ExtensionInfo.TryGetValue(pair.Key);
-
-						if (!pair.Value.Equals(value))
-							return false;
-					}
-				}
-
-				return true;
-			}).ToArray();
+			var dict = securities.ToDictionary(s => s.ToMessage(), s => s);
+			return dict.Keys.Filter(criteria).Select(m => dict[m]).ToArray();
 		}
 
 		/// <summary>
@@ -4146,7 +4027,7 @@ namespace StockSharp.Algo
 			{
 				SecurityId = securityId,
 				IsSubscribe = true,
-				DataType = MarketDataTypes.Level1,
+				DataType2 = DataType.Level1,
 				From = beginDate,
 				To = endDate,
 				BuildField = fields?.FirstOr(),
@@ -4169,7 +4050,7 @@ namespace StockSharp.Algo
 			{
 				SecurityId = securityId,
 				IsSubscribe = true,
-				DataType = MarketDataTypes.Trades,
+				DataType2 = DataType.Ticks,
 				From = beginDate,
 				To = endDate,
 			};
@@ -4191,7 +4072,7 @@ namespace StockSharp.Algo
 			{
 				SecurityId = securityId,
 				IsSubscribe = true,
-				DataType = MarketDataTypes.OrderLog,
+				DataType2 = DataType.OrderLog,
 				From = beginDate,
 				To = endDate,
 			};
@@ -4227,8 +4108,7 @@ namespace StockSharp.Algo
 			{
 				SecurityId = securityId,
 				IsSubscribe = true,
-				DataType = MarketDataTypes.CandleTimeFrame,
-				Arg = timeFrame,
+				DataType2 = DataType.TimeFrame(timeFrame),
 				From = from,
 				To = to,
 				Count = count,
@@ -4346,5 +4226,18 @@ namespace StockSharp.Algo
 		/// Indicator value.
 		/// </summary>
 		public static DataType IndicatorValue { get; } = DataType.Create(typeof(Indicators.IIndicatorValue), null);//.Immutable();
+
+		/// <summary>
+		/// To determine whether the order book is in the right state.
+		/// </summary>
+		/// <param name="depth">Order book.</param>
+		/// <returns><see langword="true" />, if the order book contains correct data, otherwise <see langword="false" />.</returns>
+		/// <remarks>
+		/// It is used in cases when the trading system by mistake sends the wrong quotes.
+		/// </remarks>
+		public static bool Verify(this MarketDepth depth)
+		{
+			return depth.ToMessage().Verify();
+		}
 	}
 }

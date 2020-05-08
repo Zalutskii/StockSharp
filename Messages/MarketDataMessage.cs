@@ -173,12 +173,31 @@ namespace StockSharp.Messages
 		[MainCategory]
 		public DateTimeOffset? To { get; set; }
 
+		private DataType _dataType2 = Messages.DataType.Level1;
+
+		/// <summary>
+		/// Interval for data refresh.
+		/// </summary>
+		[DataMember]
+		public DataType DataType2
+		{
+			get => _dataType2;
+			set => _dataType2 = value ?? throw new ArgumentNullException(nameof(value));
+		}
+
 		/// <summary>
 		/// Market data type.
 		/// </summary>
 		[Browsable(false)]
 		[DataMember]
-		public MarketDataTypes DataType { get; set; }
+		//[Obsolete("Use DataType2 property.")]
+		public MarketDataTypes DataType
+		{
+			get => DataType2.ToMarketDataType().Value;
+#pragma warning disable CS0618 // Type or member is obsolete
+			set => DataType2 = value.ToDataType(Arg);
+#pragma warning restore CS0618 // Type or member is obsolete
+		}
 
 		/// <summary>
 		/// Additional argument for market data request.
@@ -187,7 +206,12 @@ namespace StockSharp.Messages
 		[DisplayNameLoc(LocalizedStrings.Str347Key)]
 		[DescriptionLoc(LocalizedStrings.Str348Key)]
 		[MainCategory]
-		public object Arg { get; set; }
+		[Obsolete("Use DataType2 property.")]
+		public object Arg
+		{
+			get => DataType2.Arg;
+			set => DataType2.Arg = value;
+		}
 
 		/// <inheritdoc />
 		[DataMember]
@@ -231,7 +255,7 @@ namespace StockSharp.Messages
 		/// Which market-data type is used as a source value.
 		/// </summary>
 		[DataMember]
-		public MarketDataTypes? BuildFrom { get; set; }
+		public DataType BuildFrom { get; set; }
 
 		/// <summary>
 		/// Extra info for the <see cref="BuildFrom"/>.
@@ -313,8 +337,7 @@ namespace StockSharp.Messages
 		{
 			base.CopyTo(destination);
 
-			destination.Arg = Arg;
-			destination.DataType = DataType;
+			destination.DataType2 = DataType2.TypedClone();
 			destination.From = From;
 			destination.To = To;
 			destination.IsSubscribe = IsSubscribe;
@@ -323,7 +346,7 @@ namespace StockSharp.Messages
 			destination.MaxDepth = MaxDepth;
 			destination.NewsId = NewsId;
 			destination.BuildMode = BuildMode;
-			destination.BuildFrom = BuildFrom;
+			destination.BuildFrom = BuildFrom?.TypedClone();
 			destination.BuildField = BuildField;
 			destination.IsCalcVolumeProfile = IsCalcVolumeProfile;
 			destination.AllowBuildFromSmallerTimeFrame = AllowBuildFromSmallerTimeFrame;
@@ -337,10 +360,7 @@ namespace StockSharp.Messages
 		/// <inheritdoc />
 		public override string ToString()
 		{
-			var str = base.ToString() + $",Type={DataType},IsSubscribe={IsSubscribe}";
-
-			if (Arg != null)
-				str += $",Arg={Arg}";
+			var str = base.ToString() + $",DataType={DataType2},IsSubscribe={IsSubscribe}";
 
 			if (TransactionId != default)
 				str += $",TransId={TransactionId}";

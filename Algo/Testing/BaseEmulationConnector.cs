@@ -20,7 +20,6 @@ namespace StockSharp.Algo.Testing
 
     using Ecng.Serialization;
 
-    using StockSharp.BusinessEntities;
 	using StockSharp.Algo.Storages;
 
     /// <summary>
@@ -32,16 +31,15 @@ namespace StockSharp.Algo.Testing
 		/// Initializes a new instance of the <see cref="BaseEmulationConnector"/>.
 		/// </summary>
 		/// <param name="emulationAdapter">Emulation message adapter.</param>
-		/// <param name="securityProvider">The provider of information about instruments.</param>
-		/// <param name="portfolioProvider">The portfolio to be used to register orders. If value is not given, the portfolio with default name Simulator will be created.</param>
-		public BaseEmulationConnector(EmulationMessageAdapter emulationAdapter, ISecurityProvider securityProvider, IPortfolioProvider portfolioProvider)
+		/// <param name="applyHeartbeat">Apply on/off heartbeat mode for the specified adapter.</param>
+		public BaseEmulationConnector(EmulationMessageAdapter emulationAdapter, bool applyHeartbeat)
 		{
 			Adapter.InnerAdapters.Add(emulationAdapter ?? throw new ArgumentNullException(nameof(emulationAdapter)));
-			Adapter.ApplyHeartbeat(EmulationAdapter, EmulationAdapter.OwnInnerAdapter);
+			Adapter.ApplyHeartbeat(EmulationAdapter, applyHeartbeat);
 
 			TimeChange = false;
 
-			EntityFactory = new StorageEntityFactory(securityProvider ?? throw new ArgumentNullException(nameof(securityProvider)), portfolioProvider ?? throw new ArgumentNullException(nameof(portfolioProvider)));
+			EntityFactory = new StorageEntityFactory(emulationAdapter.Emulator.SecurityProvider, emulationAdapter.Emulator.PortfolioProvider);
 		}
 
 		/// <summary>
@@ -60,7 +58,7 @@ namespace StockSharp.Algo.Testing
 				IsSubscribe = isSubscribe,
 				SecurityId = generator.SecurityId,
 				Generator = generator,
-				DataType = generator.DataType,
+				DataType2 = generator.DataType,
 			});
 		}
 

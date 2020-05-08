@@ -22,6 +22,7 @@ namespace StockSharp.Messages
 	using System.Linq;
 	using System.Net;
 	using System.Security;
+	using System.ComponentModel.DataAnnotations;
 
 	using Ecng.Common;
 	using Ecng.Collections;
@@ -603,6 +604,22 @@ namespace StockSharp.Messages
 		/// <summary>
 		/// Convert candle parameter into folder name replacing the reserved symbols.
 		/// </summary>
+		/// <param name="dataType">Data type info.</param>
+		/// <returns>Directory name.</returns>
+		public static string CandleArgToFolderName(this DataType dataType)
+		{
+			if (dataType is null)
+				throw new ArgumentNullException(nameof(dataType));
+
+			if (!dataType.IsCandles)
+				throw new ArgumentException(dataType.ToString(), nameof(dataType));
+
+			return dataType.MessageType.CandleArgToFolderName(dataType.Arg);
+		}
+
+		/// <summary>
+		/// Convert candle parameter into folder name replacing the reserved symbols.
+		/// </summary>
 		/// <param name="messageType">The type of candle message.</param>
 		/// <param name="arg">Candle arg.</param>
 		/// <returns>Directory name.</returns>
@@ -665,7 +682,7 @@ namespace StockSharp.Messages
 			if (dataType.MessageType.IsCandleMessage())
 			{
 				if (_fileNames.TryGetValue(DataType.Create(dataType.MessageType, null), out var fileName))
-					return "candles_{0}_{1}".Put(fileName, dataType.MessageType.CandleArgToFolderName(dataType.Arg));
+					return "candles_{0}_{1}".Put(fileName, dataType.CandleArgToFolderName());
 
 				throw new ArgumentOutOfRangeException(nameof(dataType), dataType, LocalizedStrings.WrongCandleType);
 			}
@@ -764,15 +781,15 @@ namespace StockSharp.Messages
 			if (subscription == null)
 				throw new ArgumentNullException(nameof(subscription));
 
-			if (!adapter.SupportedMarketDataTypes.Contains(subscription.ToDataType()))
+			if (!adapter.SupportedMarketDataTypes.Contains(subscription.DataType2))
 				return false;
 
-			var args = adapter.GetCandleArgs(subscription.DataType.ToCandleMessage(), subscription.SecurityId, subscription.From, subscription.To).ToArray();
+			var args = adapter.GetCandleArgs(subscription.DataType2.MessageType, subscription.SecurityId, subscription.From, subscription.To).ToArray();
 
 			if (args.IsEmpty())
 				return true;
 
-			return args.Contains(subscription.Arg);
+			return args.Contains(subscription.GetArg());
 		}
 
 		/// <summary>
@@ -809,6 +826,7 @@ namespace StockSharp.Messages
 		/// </summary>
 		/// <param name="message">Market-data message (uses as a subscribe/unsubscribe in outgoing case, confirmation event in incoming case).</param>
 		/// <returns>Data type info.</returns>
+		[Obsolete("Use MarketDataMessage.DataType2 property.")]
 		public static DataType ToDataType(this MarketDataMessage message)
 		{
 			if (message == null)
@@ -875,6 +893,44 @@ namespace StockSharp.Messages
 					throw new ArgumentOutOfRangeException(nameof(type), type, LocalizedStrings.Str1219);
 				}
 			}
+		}
+
+		/// <summary>
+		/// Convert <see cref="string"/> to <see cref="DataType"/> value.
+		/// </summary>
+		/// <param name="type">type.</param>
+		/// <param name="arg">Arg.</param>
+		/// <returns>Data type info.</returns>
+		public static DataType ToDataType(this string type, string arg)
+		{
+			if (type.IsEmpty())
+				throw new ArgumentNullException(nameof(type));
+
+			if (type.Contains(','))
+			{
+				var messageType = type.To<Type>();
+				return DataType.Create(messageType, messageType.IsCandleMessage() ? messageType.ToCandleArg(arg) : arg);
+			}
+			else
+			{
+				var dataType = type.To<MarketDataTypes>();
+				return dataType.ToDataType(dataType.IsCandleDataType() ? dataType.ToCandleMessage().ToCandleArg(arg) : arg);
+			}
+		}
+
+		/// <summary>
+		/// Convert <see cref="DataType"/> to <see cref="string"/> value.
+		/// </summary>
+		/// <param name="dataType">Data type info.</param>
+		/// <returns><see cref="string"/> value.</returns>
+		public static (string type, string arg) FormatToString(this DataType dataType)
+		{
+			if (dataType is null)
+				throw new ArgumentNullException(nameof(dataType));
+
+			var type = dataType.MessageType.To<string>();
+			var arg = dataType.IsCandles ? dataType.CandleArgToFolderName() : dataType.Arg.To<string>();
+			return (type, arg);
 		}
 
 		/// <summary>
@@ -1644,6 +1700,9 @@ namespace StockSharp.Messages
 			if (wrapper is TAdapter adapter)
 				return adapter;
 
+			if (wrapper.InnerAdapter is TAdapter adapter2)
+				return adapter2;
+
 			if (wrapper.InnerAdapter is IMessageAdapterWrapper w)
 				return w.FindAdapter<TAdapter>();
 
@@ -1780,20 +1839,55 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
+		/// Get typed argument.
+		/// </summary>
+		/// <param name="mdMsg">Market-data message (uses as a subscribe/unsubscribe in outgoing case, confirmation event in incoming case).</param>
+		/// <returns>The additional argument, associated with data. For example, candle argument.</returns>
+		public static object GetArg(this MarketDataMessage mdMsg)
+		{
+			if (mdMsg is null)
+				throw new ArgumentNullException(nameof(mdMsg));
+
+			return mdMsg.DataType2.Arg;
+		}
+
+		/// <summary>
+		/// Get typed argument.
+		/// </summary>
+		/// <typeparam name="TArg">Arg type.</typeparam>
+		/// <param name="mdMsg">Market-data message (uses as a subscribe/unsubscribe in outgoing case, confirmation event in incoming case).</param>
+		/// <returns>The additional argument, associated with data. For example, candle argument.</returns>
+		public static TArg GetArg<TArg>(this MarketDataMessage mdMsg)
+		{
+			if (!(mdMsg.GetArg() is TArg arg))
+				throw new InvalidOperationException(LocalizedStrings.WrongCandleArg.Put(mdMsg.DataType2.Arg));
+
+			return arg;
+		}
+
+		/// <summary>
+		/// Set typed argument.
+		/// </summary>
+		/// <typeparam name="TArg">Arg type.</typeparam>
+		/// <param name="mdMsg">Market-data message (uses as a subscribe/unsubscribe in outgoing case, confirmation event in incoming case).</param>
+		/// <param name="arg">The additional argument, associated with data. For example, candle argument.</param>
+		/// <returns>Market-data message (uses as a subscribe/unsubscribe in outgoing case, confirmation event in incoming case).</returns>
+		public static MarketDataMessage SetArg<TArg>(this MarketDataMessage mdMsg, TArg arg)
+		{
+			if (mdMsg is null)
+				throw new ArgumentNullException(nameof(mdMsg));
+
+			mdMsg.DataType2.Arg = arg;
+			return mdMsg;
+		}
+
+		/// <summary>
 		/// Get time-frame from the specified market-data message.
 		/// </summary>
 		/// <param name="mdMsg">Market-data message (uses as a subscribe/unsubscribe in outgoing case, confirmation event in incoming case).</param>
 		/// <returns>Time-frame.</returns>
 		public static TimeSpan GetTimeFrame(this MarketDataMessage mdMsg)
-		{
-			if (mdMsg == null)
-				throw new ArgumentNullException(nameof(mdMsg));
-
-			if (!(mdMsg.Arg is TimeSpan timeFrame))
-				throw new InvalidOperationException(LocalizedStrings.WrongCandleArg.Put(mdMsg.Arg));
-
-			return timeFrame;
-		}
+			=> mdMsg.GetArg<TimeSpan>();
 
 		/// <summary>
 		/// 
@@ -1946,6 +2040,14 @@ namespace StockSharp.Messages
 		/// <returns>Check result.</returns>
 		public static bool IsSecurityRequired(this MarketDataTypes type)
 			=> type != MarketDataTypes.News && type != MarketDataTypes.Board;
+
+		/// <summary>
+		/// Is the data type required security info.
+		/// </summary>
+		/// <param name="type">Data type info.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsSecurityRequired(this DataType type)
+			=> type != DataType.News && type != DataType.Board;
 
 		/// <summary>
 		/// Remove lookup messages support.
@@ -2138,23 +2240,21 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
-		/// Made the specified message as <see cref="Message.IsBack"/>.
+		/// Made the specified message as <see cref="Message.BackMode"/>.
 		/// </summary>
 		/// <typeparam name="TMessage">Message type.</typeparam>
 		/// <param name="message">Message.</param>
 		/// <param name="adapter">Adapter.</param>
+		/// <param name="mode">Back mode.</param>
 		/// <returns>Message.</returns>
-		public static TMessage LoopBack<TMessage>(this TMessage message, IMessageAdapter adapter)
+		public static TMessage LoopBack<TMessage>(this TMessage message, IMessageAdapter adapter, MessageBackModes mode = MessageBackModes.Direct)
 			where TMessage : Message
 		{
 			if (message == null)
 				throw new ArgumentNullException(nameof(message));
 
-			if (adapter == null)
-				throw new ArgumentNullException(nameof(adapter));
-
-			message.IsBack = true;
-			message.Adapter = adapter;
+			message.BackMode = mode;
+			message.Adapter = adapter ?? throw new ArgumentNullException(nameof(adapter));
 
 			return message;
 		}
@@ -2171,10 +2271,23 @@ namespace StockSharp.Messages
 			if (message == null)
 				throw new ArgumentNullException(nameof(message));
 
-			message.IsBack = false;
+			message.BackMode = MessageBackModes.None;
 			message.Adapter = null;
 
 			return message;
+		}
+
+		/// <summary>
+		/// Determines the specified message is loopback.
+		/// </summary>
+		/// <param name="message">Message.</param>
+		/// <returns>Is loopback message.</returns>
+		public static bool IsBack(this Message message)
+		{
+			if (message is null)
+				throw new ArgumentNullException(nameof(message));
+
+			return message.BackMode != MessageBackModes.None;
 		}
 
 		/// <summary>
@@ -2283,19 +2396,6 @@ namespace StockSharp.Messages
 
 			news.Story = NewsStockSharpSource;
 			return news;
-		}
-
-		/// <summary>
-		/// Determines the specified message is required build only mode.
-		/// </summary>
-		/// <param name="mdMsg">Market-data message (uses as a subscribe/unsubscribe in outgoing case, confirmation event in incoming case).</param>
-		/// <returns>Check result.</returns>
-		public static bool IsBuildOnly(this MarketDataMessage mdMsg)
-		{
-			if (mdMsg is null)
-				throw new ArgumentNullException(nameof(mdMsg));
-
-			return mdMsg.IsCalcVolumeProfile || mdMsg.BuildMode == MarketDataBuildModes.Build;
 		}
 
 		/// <summary>
@@ -2832,5 +2932,85 @@ namespace StockSharp.Messages
 		/// <returns>Possible time-frames.</returns>
 		public static IEnumerable<TimeSpan> FilterTimeFrames(this IEnumerable<DataType> dataTypes)
 			=> dataTypes.Where(t => t.MessageType == typeof(TimeFrameCandleMessage) && t.Arg != null).Select(t => (TimeSpan)t.Arg);
+
+		/// <summary>
+		/// 
+		/// </summary>
+		/// <typeparam name="TField"></typeparam>
+		/// <param name="field"></param>
+		/// <returns></returns>
+		public static string GetFieldDescription<TField>(this TField field)
+		{
+			return field.GetType().GetField(field.ToString()).GetAttribute<DisplayAttribute>()?.GetDescription();
+		}
+
+		/// <summary>
+		/// To determine whether the order book is in the right state.
+		/// </summary>
+		/// <param name="book">Order book.</param>
+		/// <returns><see langword="true" />, if the order book contains correct data, otherwise <see langword="false" />.</returns>
+		/// <remarks>
+		/// It is used in cases when the trading system by mistake sends the wrong quotes.
+		/// </remarks>
+		public static bool Verify(this QuoteChangeMessage book)
+		{
+			if (book is null)
+				throw new ArgumentNullException(nameof(book));
+
+			var bids = book.IsSorted ? book.Bids : book.Bids.OrderByDescending(b => b.Price).ToArray();
+			var asks = book.IsSorted ? book.Asks : book.Asks.OrderBy(b => b.Price).ToArray();
+
+			var bestBid = bids.FirstOrDefault();
+			var bestAsk = asks.FirstOrDefault();
+
+			if (bestBid != null && bestAsk != null)
+			{
+				return bids.All(b => b.Price < bestAsk.Price) && asks.All(a => a.Price > bestBid.Price) && Verify(bids, true) && Verify(asks, false);
+			}
+			else
+			{
+				return Verify(bids, true) && Verify(asks, false);
+			}
+		}
+
+		private static bool Verify(QuoteChange[] quotes, bool isBids)
+		{
+			if (quotes.IsEmpty())
+				return true;
+
+			if (quotes.Any(q => !Verify(q)))
+				return false;
+
+			if (quotes.GroupBy(q => q.Price).Any(g => g.Count() > 1))
+				return false;
+
+			var prev = quotes.First();
+
+			foreach (var current in quotes.Skip(1))
+			{
+				if (isBids)
+				{
+					if (current.Price > prev.Price)
+						return false;
+				}
+				else
+				{
+					if (current.Price < prev.Price)
+						return false;
+				}
+
+				prev = current;
+			}
+
+			return true;
+		}
+
+		private static bool Verify(QuoteChange quote)
+		{
+			if (quote is null)
+				throw new ArgumentNullException(nameof(quote));
+
+			return quote.Price > 0 && quote.Volume > 0;
+		}
 	}
 }

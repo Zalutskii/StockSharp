@@ -36,8 +36,9 @@
 	using StockSharp.Messages;
 	using StockSharp.Xaml.Charting;
     using StockSharp.Xaml;
+	using StockSharp.Configuration;
 
-    public partial class MainWindow
+	public partial class MainWindow
 	{
 		private ChartArea _areaComb;
 		private ChartCandleElement _candleElement;
@@ -134,7 +135,7 @@
 
 			ConfigManager.RegisterService<IBackupService>(new YandexDiskService(YandexLoginWindow.Authorize(this)));
 
-			HistoryPath.Folder = StockSharp.Samples.HistoryDataHelper.DataPath;
+			HistoryPath.Folder = Paths.HistoryDataPath;
 
 			Chart.SecurityProvider = _securityProvider;
 
@@ -817,13 +818,13 @@
 			Subscription IMarketDataProviderEx.RegisterFilteredMarketDepth(Security security) => null;
 			void IMarketDataProviderEx.UnRegisterFilteredMarketDepth(Security security) { }
 
-			Subscription IMarketDataProviderEx.SubscribeMarketDepth(Security security, DateTimeOffset? from, DateTimeOffset? to, long? count, MarketDataBuildModes buildMode, MarketDataTypes? buildFrom, int? maxDepth, TimeSpan? refreshSpeed, IOrderLogMarketDepthBuilder depthBuilder, IMessageAdapter adapter) => null;
+			Subscription IMarketDataProviderEx.SubscribeMarketDepth(Security security, DateTimeOffset? from, DateTimeOffset? to, long? count, MarketDataBuildModes buildMode, DataType buildFrom, int? maxDepth, TimeSpan? refreshSpeed, IOrderLogMarketDepthBuilder depthBuilder, IMessageAdapter adapter) => null;
 			void IMarketDataProviderEx.UnSubscribeMarketDepth(Security security) { }
 
-			Subscription IMarketDataProviderEx.SubscribeTrades(Security security, DateTimeOffset? from, DateTimeOffset? to, long? count, MarketDataBuildModes buildMode, MarketDataTypes? buildFrom, IMessageAdapter adapter) => null;
+			Subscription IMarketDataProviderEx.SubscribeTrades(Security security, DateTimeOffset? from, DateTimeOffset? to, long? count, MarketDataBuildModes buildMode, DataType buildFrom, IMessageAdapter adapter) => null;
 			void IMarketDataProviderEx.UnSubscribeTrades(Security security) { }
 
-			Subscription IMarketDataProviderEx.SubscribeLevel1(Security security, DateTimeOffset? from, DateTimeOffset? to, long? count, MarketDataBuildModes buildMode, MarketDataTypes? buildFrom, IMessageAdapter adapter) => null;
+			Subscription IMarketDataProviderEx.SubscribeLevel1(Security security, DateTimeOffset? from, DateTimeOffset? to, long? count, MarketDataBuildModes buildMode, DataType buildFrom, IMessageAdapter adapter) => null;
 			void IMarketDataProviderEx.UnSubscribeLevel1(Security security) { }
 
 			Subscription IMarketDataProviderEx.SubscribeOrderLog(Security security, DateTimeOffset? from, DateTimeOffset? to, long? count, IMessageAdapter adapter) => null;
