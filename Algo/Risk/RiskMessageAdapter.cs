@@ -83,7 +83,8 @@ namespace StockSharp.Algo.Risk
 		/// <inheritdoc />
 		protected override void OnInnerAdapterNewOutMessage(Message message)
 		{
-			ProcessRisk(message);
+			if (message.Type != MessageTypes.Reset)
+				ProcessRisk(message);
 
 			base.OnInnerAdapterNewOutMessage(message);
 		}
@@ -108,7 +109,7 @@ namespace StockSharp.Algo.Risk
 						RaiseNewOutMessage(new OrderGroupCancelMessage { TransactionId = TransactionIdGenerator.GetNextId() }.LoopBack(this));
 						break;
 					default:
-						throw new ArgumentOutOfRangeException();
+						throw new InvalidOperationException(rule.Action.To<string>());
 				}
 			}
 		}

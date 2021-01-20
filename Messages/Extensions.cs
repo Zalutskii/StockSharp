@@ -22,7 +22,6 @@ namespace StockSharp.Messages
 	using System.Linq;
 	using System.Net;
 	using System.Security;
-	using System.ComponentModel.DataAnnotations;
 
 	using Ecng.Common;
 	using Ecng.Collections;
@@ -41,8 +40,8 @@ namespace StockSharp.Messages
 	{
 		static Extensions()
 		{
-			string TimeSpanToString(TimeSpan arg) => arg.ToString().Replace(':', '-');
-			TimeSpan StringToTimeSpan(string str) => str.Replace('-', ':').To<TimeSpan>();
+			static string TimeSpanToString(TimeSpan arg) => arg.ToString().Replace(':', '-');
+			static TimeSpan StringToTimeSpan(string str) => str.Replace('-', ':').To<TimeSpan>();
 
 			RegisterCandleType(typeof(TimeFrameCandleMessage), MessageTypes.CandleTimeFrame, MarketDataTypes.CandleTimeFrame, typeof(TimeFrameCandleMessage).Name.Remove(nameof(Message)), StringToTimeSpan, TimeSpanToString);
 			RegisterCandleType(typeof(TickCandleMessage), MessageTypes.CandleTick, MarketDataTypes.CandleTick, typeof(TickCandleMessage).Name.Remove(nameof(Message)), str => str.To<int>(), arg => arg.ToString());
@@ -73,6 +72,9 @@ namespace StockSharp.Messages
 			if (adapter == null)
 				throw new ArgumentNullException(nameof(adapter));
 
+			if (pfName.IsEmpty())
+				throw new ArgumentNullException(nameof(pfName));
+
 			var time = adapter.CurrentTime;
 
 			return new PositionChangeMessage
@@ -96,6 +98,9 @@ namespace StockSharp.Messages
 			if (adapter == null)
 				throw new ArgumentNullException(nameof(adapter));
 
+			if (pfName.IsEmpty())
+				throw new ArgumentNullException(nameof(pfName));
+
 			var time = adapter.CurrentTime;
 
 			return new PositionChangeMessage
@@ -112,12 +117,12 @@ namespace StockSharp.Messages
 		/// </summary>
 		/// <param name="message">Market depth.</param>
 		/// <returns>Best bid, or <see langword="null" />, if no bids are empty.</returns>
-		public static QuoteChange GetBestBid(this QuoteChangeMessage message)
+		public static QuoteChange? GetBestBid(this QuoteChangeMessage message)
 		{
-			if (message == null)
+			if (message is null)
 				throw new ArgumentNullException(nameof(message));
 
-			return (message.IsSorted ? (IEnumerable<QuoteChange>)message.Bids : message.Bids.OrderByDescending(q => q.Price)).FirstOrDefault();
+			return (message.IsSorted ? (IEnumerable<QuoteChange>)message.Bids : message.Bids.OrderByDescending(q => q.Price)).FirstOr();
 		}
 
 		/// <summary>
@@ -125,12 +130,12 @@ namespace StockSharp.Messages
 		/// </summary>
 		/// <param name="message">Market depth.</param>
 		/// <returns>Best ask, or <see langword="null" />, if no asks are empty.</returns>
-		public static QuoteChange GetBestAsk(this QuoteChangeMessage message)
+		public static QuoteChange? GetBestAsk(this QuoteChangeMessage message)
 		{
-			if (message == null)
+			if (message is null)
 				throw new ArgumentNullException(nameof(message));
 
-			return (message.IsSorted ? (IEnumerable<QuoteChange>)message.Asks : message.Asks.OrderBy(q => q.Price)).FirstOrDefault();
+			return (message.IsSorted ? (IEnumerable<QuoteChange>)message.Asks : message.Asks.OrderBy(q => q.Price)).FirstOr();
 		}
 
 		/// <summary>
@@ -156,12 +161,12 @@ namespace StockSharp.Messages
 			if (message == null)
 				throw new ArgumentNullException(nameof(message));
 
-			var spreadMiddle = (decimal?)message.Changes.TryGetValue(Level1Fields.SpreadMiddle);
+			var spreadMiddle = message.TryGetDecimal(Level1Fields.SpreadMiddle);
 
 			if (spreadMiddle == null)
 			{
-				var bestBid = (decimal?)message.Changes.TryGetValue(Level1Fields.BestBidPrice);
-				var bestAsk = (decimal?)message.Changes.TryGetValue(Level1Fields.BestAskPrice);
+				var bestBid = message.TryGetDecimal(Level1Fields.BestBidPrice);
+				var bestAsk = message.TryGetDecimal(Level1Fields.BestAskPrice);
 
 				spreadMiddle = bestBid.GetSpreadMiddle(bestAsk);
 			}
@@ -207,24 +212,44 @@ namespace StockSharp.Messages
 			if (message == null)
 				throw new ArgumentNullException(nameof(message));
 
-			return (decimal?)message.Changes.TryGetValue(Level1Fields.LastTradePrice);
+			return message.TryGetDecimal(Level1Fields.LastTradePrice);
 		}
 
 		/// <summary>
 		/// Cast <see cref="OrderMessage"/> to the <see cref="ExecutionMessage"/>.
 		/// </summary>
 		/// <param name="message"><see cref="OrderMessage"/>.</param>
+		/// <param name="error">Error info.</param>
 		/// <returns><see cref="ExecutionMessage"/>.</returns>
-		public static ExecutionMessage CreateReply(this OrderMessage message)
+		public static ExecutionMessage CreateReply(this OrderMessage message, Exception error = null)
 		{
-			if (message == null)
+			if (message is null)
 				throw new ArgumentNullException(nameof(message));
 
+			var reply = message.TransactionId.CreateOrderReply(message.LocalTime);
+
+			reply.Error = error;
+
+			if (error != null)
+				reply.OrderState = OrderStates.Failed;
+
+			return reply;
+		}
+
+		/// <summary>
+		/// Create order's transaction reply.
+		/// </summary>
+		/// <param name="transactionId">Transaction ID.</param>
+		/// <param name="serverTime">Server time.</param>
+		/// <returns>The message contains information about the execution.</returns>
+		public static ExecutionMessage CreateOrderReply(this long transactionId, DateTimeOffset serverTime)
+		{
 			return new ExecutionMessage
 			{
-				OriginalTransactionId = message.TransactionId,
+				OriginalTransactionId = transactionId,
 				ExecutionType = ExecutionTypes.Transaction,
 				HasOrderInfo = true,
+				ServerTime = serverTime,
 			};
 		}
 
@@ -403,7 +428,7 @@ namespace StockSharp.Messages
 				throw new ArgumentNullException(nameof(info));
 
 			var dict = adapter.PossibleSupportedMessages.ToDictionary(i => i.Type);
-			dict.TryAdd(info.Type, info);
+			dict.TryAdd2(info.Type, info);
 
 			adapter.PossibleSupportedMessages = dict.Values.ToArray();
 		}
@@ -445,11 +470,11 @@ namespace StockSharp.Messages
 			if (adapter == null)
 				throw new ArgumentNullException(nameof(adapter));
 
-			adapter.SupportedMarketDataTypes = adapter.SupportedMarketDataTypes.Concat(dataType).ToArray();
+			adapter.SupportedMarketDataTypes = adapter.SupportedMarketDataTypes.Concat(dataType).Distinct().ToArray();
 		}
 
 		/// <summary>
-		/// Remove market data type from <see cref="IMessageAdapter.SupportedInMessages"/>.
+		/// Remove market data type from <see cref="IMessageAdapter.SupportedMarketDataTypes"/>.
 		/// </summary>
 		/// <param name="adapter">Adapter.</param>
 		/// <param name="type">Market data type.</param>
@@ -541,45 +566,80 @@ namespace StockSharp.Messages
 			return adapter.SupportedOutMessages.Contains(type);
 		}
 
-		private static readonly SynchronizedPairSet<MessageTypes, MarketDataTypes> _candleDataTypes = new SynchronizedPairSet<MessageTypes, MarketDataTypes>();
-
-		/// <summary>
-		/// Determine the <paramref name="type"/> is candle data type.
-		/// </summary>
-		/// <param name="type">The data type.</param>
-		/// <returns><see langword="true" />, if data type is candle, otherwise, <see langword="false" />.</returns>
-		public static bool IsCandleDataType(this MarketDataTypes type)
-			=> _candleDataTypes.ContainsValue(type);
+		private static readonly CachedSynchronizedPairSet<MessageTypes, Type> _candleDataTypes = new CachedSynchronizedPairSet<MessageTypes, Type>();
 
 		/// <summary>
 		/// Determine the <paramref name="type"/> is candle data type.
 		/// </summary>
 		/// <param name="type">Message type.</param>
 		/// <returns><see langword="true" />, if data type is candle, otherwise, <see langword="false" />.</returns>
-		public static bool IsCandle(this MessageTypes type)
-			=> _candleDataTypes.ContainsKey(type);
+		public static bool IsCandle(this MessageTypes type)	=> _candleDataTypes.ContainsKey(type);
+
+		private static readonly SynchronizedPairSet<MessageTypes, Type> _messageTypeMap = new SynchronizedPairSet<MessageTypes, Type>();
 
 		/// <summary>
-		/// To convert the type of candles <see cref="MarketDataTypes"/> into type of message <see cref="MessageTypes"/>.
+		/// Convert <see cref="Type"/> to <see cref="MessageTypes"/> value.
 		/// </summary>
-		/// <param name="type">Candles type.</param>
-		/// <returns>Message type.</returns>
-		public static MessageTypes ToCandleMessageType(this MarketDataTypes type)
+		/// <param name="type"><see cref="Type"/> value.</param>
+		/// <returns><see cref="MessageTypes"/> value.</returns>
+		public static MessageTypes ToMessageType(this Type type)
 		{
-			return _candleDataTypes[type];
+			lock (_messageTypeMap.SyncRoot)
+			{
+				if (_messageTypeMap.TryGetKey(type, out var enumVal))
+					return enumVal;
+
+				if (!_candleDataTypes.TryGetKey(type, out enumVal))
+					enumVal = type.CreateInstance<Message>().Type;
+
+				_messageTypeMap.Add(enumVal, type);
+				return enumVal;
+			}
 		}
 
 		/// <summary>
-		/// To convert the type of message <see cref="MessageTypes"/> into type of candles <see cref="MarketDataTypes"/>.
+		/// Convert <see cref="MessageTypes"/> to <see cref="Type"/> value.
+		/// </summary>
+		/// <param name="type"><see cref="MessageTypes"/> value.</param>
+		/// <returns><see cref="Type"/> value.</returns>
+		public static Type ToMessageType(this MessageTypes type)
+		{
+			lock (_messageTypeMap.SyncRoot)
+			{
+				if (_messageTypeMap.TryGetValue(type, out var typeVal))
+					return typeVal;
+
+				if (_candleDataTypes.TryGetValue(type, out typeVal))
+					_messageTypeMap.Add(type, typeVal);
+				else
+				{
+					var types = typeof(Message)
+						.Assembly
+						.GetTypes()
+						.Where(t => !t.IsAbstract && !t.IsInterface && t.IsSubclassOf(typeof(Message)));
+
+					foreach (var type1 in types)
+						type1.ToMessageType();
+
+					if (!_messageTypeMap.TryGetValue(type, out typeVal))
+						throw new ArgumentOutOfRangeException(nameof(type), type, LocalizedStrings.Str1219);
+				}
+
+				return typeVal;
+			}
+		}
+
+		/// <summary>
+		/// To convert the type of message <see cref="MessageTypes"/> into type of candles <see cref="CandleMessage"/>.
 		/// </summary>
 		/// <param name="type">Message type.</param>
 		/// <returns>Candles type.</returns>
-		public static MarketDataTypes ToCandleMarketDataType(this MessageTypes type)
-		{
-			return _candleDataTypes[type];
-		}
+		public static Type ToCandleMessageType(this MessageTypes type) => _candleDataTypes[type];
 
-		private static readonly SynchronizedDictionary<Type, Tuple<Func<string, object>, Func<object, string>>> _candleArgConverters = new SynchronizedDictionary<Type, Tuple<Func<string, object>, Func<object, string>>>();
+		private static readonly SynchronizedDictionary<Type, Tuple<Func<string, object>, Func<object, string>>> _dataTypeArgConverters = new SynchronizedDictionary<Type, Tuple<Func<string, object>, Func<object, string>>>
+		{
+			{ typeof(ExecutionMessage), Tuple.Create((Func<string, object>)(str => str.To<ExecutionTypes>()), (Func<object, string>)(arg => arg.To<string>())) }
+		};
 
 		/// <summary>
 		/// To convert string representation of the candle argument into typified.
@@ -587,18 +647,22 @@ namespace StockSharp.Messages
 		/// <param name="messageType">The type of candle message.</param>
 		/// <param name="str">The string representation of the argument.</param>
 		/// <returns>Argument.</returns>
-		public static object ToCandleArg(this Type messageType, string str)
+		public static object ToDataTypeArg(this Type messageType, string str)
 		{
-			if (messageType == null)
+			if (messageType is null)
 				throw new ArgumentNullException(nameof(messageType));
 
 			if (str.IsEmpty())
-				throw new ArgumentNullException(nameof(str));
+			{
+				return null;
+				//throw new ArgumentNullException(nameof(str));
+			}
 
-			if (_candleArgConverters.TryGetValue(messageType, out var converter))
+			if (_dataTypeArgConverters.TryGetValue(messageType, out var converter))
 				return converter.Item1(str);
 
-			throw new ArgumentOutOfRangeException(nameof(messageType), messageType, LocalizedStrings.WrongCandleType);
+			return str;
+			//throw new ArgumentOutOfRangeException(nameof(messageType), messageType, LocalizedStrings.WrongCandleType);
 		}
 
 		/// <summary>
@@ -606,15 +670,12 @@ namespace StockSharp.Messages
 		/// </summary>
 		/// <param name="dataType">Data type info.</param>
 		/// <returns>Directory name.</returns>
-		public static string CandleArgToFolderName(this DataType dataType)
+		public static string DataTypeArgToString(this DataType dataType)
 		{
 			if (dataType is null)
 				throw new ArgumentNullException(nameof(dataType));
 
-			if (!dataType.IsCandles)
-				throw new ArgumentException(dataType.ToString(), nameof(dataType));
-
-			return dataType.MessageType.CandleArgToFolderName(dataType.Arg);
+			return dataType.MessageType.DataTypeArgToString(dataType.Arg);
 		}
 
 		/// <summary>
@@ -623,15 +684,16 @@ namespace StockSharp.Messages
 		/// <param name="messageType">The type of candle message.</param>
 		/// <param name="arg">Candle arg.</param>
 		/// <returns>Directory name.</returns>
-		public static string CandleArgToFolderName(this Type messageType, object arg)
+		public static string DataTypeArgToString(this Type messageType, object arg)
 		{
 			if (messageType == null)
 				throw new ArgumentNullException(nameof(messageType));
 
-			if (_candleArgConverters.TryGetValue(messageType, out var converter))
+			if (_dataTypeArgConverters.TryGetValue(messageType, out var converter))
 				return converter.Item2(arg);
 
-			throw new ArgumentOutOfRangeException(nameof(messageType), messageType, LocalizedStrings.WrongCandleType);
+			return arg.To<string>();
+			//throw new ArgumentOutOfRangeException(nameof(messageType), messageType, LocalizedStrings.WrongCandleType);
 		}
 
 		private static readonly SynchronizedPairSet<DataType, string> _fileNames = new SynchronizedPairSet<DataType, string>(EqualityComparer<DataType>.Default, StringComparer.InvariantCultureIgnoreCase)
@@ -644,6 +706,7 @@ namespace StockSharp.Messages
 			{ DataType.PositionChanges, "position" },
 			{ DataType.News, "news" },
 			{ DataType.Board, "board" },
+			{ DataType.BoardState, "board_state" },
 		};
 
 		/// <summary>
@@ -669,7 +732,7 @@ namespace StockSharp.Messages
 			if (!_fileNames.TryGetKey(parts[1], out var type))
 				return null;
 
-			return DataType.Create(type.MessageType, type.MessageType.ToCandleArg(parts[2]));
+			return DataType.Create(type.MessageType, type.MessageType.ToDataTypeArg(parts[2]));
 		}
 
 		/// <summary>
@@ -679,30 +742,26 @@ namespace StockSharp.Messages
 		/// <returns>File name.</returns>
 		public static string DataTypeToFileName(this DataType dataType)
 		{
+			if (dataType is null)
+				throw new ArgumentNullException(nameof(dataType));
+
 			if (dataType.MessageType.IsCandleMessage())
 			{
 				if (_fileNames.TryGetValue(DataType.Create(dataType.MessageType, null), out var fileName))
-					return "candles_{0}_{1}".Put(fileName, dataType.CandleArgToFolderName());
+					return $"candles_{fileName}_{dataType.DataTypeArgToString()}";
 
-				throw new ArgumentOutOfRangeException(nameof(dataType), dataType, LocalizedStrings.WrongCandleType);
+				return null;
 			}
 			else
 			{
-				var fileName = _fileNames.TryGetValue(dataType);
-
-				if (fileName == null)
-					throw new NotSupportedException(LocalizedStrings.Str2872Params.Put(dataType.ToString()));
-
-				return fileName;
+				return _fileNames.TryGetValue(dataType);
 			}
 		}
-
-		private static readonly CachedSynchronizedPairSet<Type, MarketDataTypes> _candleMarketDataTypes = new CachedSynchronizedPairSet<Type, MarketDataTypes>();
 
 		/// <summary>
 		/// All registered candle types.
 		/// </summary>
-		public static IEnumerable<Type> AllCandleTypes => _candleMarketDataTypes.CachedKeys;
+		public static IEnumerable<Type> AllCandleTypes => _candleDataTypes.CachedValues;
 
 		/// <summary>
 		/// Register new candle type.
@@ -724,47 +783,31 @@ namespace StockSharp.Messages
 			if (argParserFrom is null)
 				throw new ArgumentNullException(nameof(argParserFrom));
 
-			T Do<T>(Func<T> func) => CultureInfo.InvariantCulture.DoInCulture(func);
+			static T Do<T>(Func<T> func) => CultureInfo.InvariantCulture.DoInCulture(func);
 
 			Func<string, object> p1 = str => Do(() => argParserTo(str));
 			Func<object, string> p2 = arg => arg is string s ? s : Do(() => argParserFrom((TArg)arg));
 
-			_messageTypeMap.Add(dataType, Tuple.Create(type, default(object)));
-			_candleDataTypes.Add(type, dataType);
-			_candleMarketDataTypes.Add(messageType, dataType);
-			_candleArgConverters.Add(messageType, Tuple.Create(p1, p2));
+#pragma warning disable CS0612 // Type or member is obsolete
+			_messageTypeMapOld.Add(dataType, Tuple.Create(type, default(object)));
+#pragma warning restore CS0612 // Type or member is obsolete
+
+			_candleDataTypes.Add(type, messageType);
+			_dataTypeArgConverters.Add(messageType, Tuple.Create(p1, p2));
 			_fileNames.Add(DataType.Create(messageType, null), fileName);
 		}
 
 		/// <summary>
-		/// Cast candle type <see cref="MarketDataTypes"/> to the message <see cref="CandleMessage"/>.
+		/// Cast candle type <see cref="MessageTypes"/> to the message <see cref="CandleMessage"/>.
 		/// </summary>
 		/// <param name="type">Candle type.</param>
 		/// <returns>Message type <see cref="CandleMessage"/>.</returns>
-		public static Type ToCandleMessage(this MarketDataTypes type)
+		public static Type ToCandleMessage(this MessageTypes type)
 		{
-			var messageType = _candleMarketDataTypes.TryGetKey(type);
-
-			if (messageType == null)
+			if (!_candleDataTypes.TryGetValue(type, out var messageType))
 				throw new ArgumentOutOfRangeException(nameof(type), type, LocalizedStrings.WrongCandleType);
 
 			return messageType;
-		}
-
-		/// <summary>
-		/// Cast message type <see cref="CandleMessage"/> to the <see cref="MarketDataTypes"/>.
-		/// </summary>
-		/// <param name="messageType">The type of the message <see cref="CandleMessage"/>.</param>
-		/// <returns><see cref="MarketDataTypes"/>.</returns>
-		public static MarketDataTypes ToCandleMarketDataType(this Type messageType)
-		{
-			if (messageType == null)
-				throw new ArgumentNullException(nameof(messageType));
-
-			if (!_candleMarketDataTypes.TryGetValue(messageType, out var dataType))
-				throw new ArgumentOutOfRangeException(nameof(messageType), messageType, LocalizedStrings.WrongCandleType);
-
-			return dataType;
 		}
 
 		/// <summary>
@@ -822,80 +865,6 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
-		/// Convert <see cref="MarketDataMessage"/> to <see cref="DataType"/> value.
-		/// </summary>
-		/// <param name="message">Market-data message (uses as a subscribe/unsubscribe in outgoing case, confirmation event in incoming case).</param>
-		/// <returns>Data type info.</returns>
-		[Obsolete("Use MarketDataMessage.DataType2 property.")]
-		public static DataType ToDataType(this MarketDataMessage message)
-		{
-			if (message == null)
-				throw new ArgumentNullException(nameof(message));
-
-			return message.DataType.ToDataType(message.Arg);
-		}
-
-		private static readonly SynchronizedPairSet<MarketDataTypes, Tuple<MessageTypes, object>> _messageTypeMap = new SynchronizedPairSet<MarketDataTypes, Tuple<MessageTypes, object>>
-		{
-			{ MarketDataTypes.Level1, Tuple.Create(MessageTypes.Level1Change, default(object)) },
-			{ MarketDataTypes.MarketDepth, Tuple.Create(MessageTypes.QuoteChange, default(object)) },
-			{ MarketDataTypes.Trades, Tuple.Create(MessageTypes.Execution, (object)ExecutionTypes.Tick) },
-			{ MarketDataTypes.OrderLog, Tuple.Create(MessageTypes.Execution, (object)ExecutionTypes.OrderLog) },
-			{ MarketDataTypes.News, Tuple.Create(MessageTypes.News, default(object)) },
-			{ MarketDataTypes.Board, Tuple.Create(MessageTypes.Board, default(object)) },
-		};
-
-		/// <summary>
-		/// Convert <see cref="MarketDataTypes"/> to <see cref="MessageTypes"/> value.
-		/// </summary>
-		/// <param name="type">Message type.</param>
-		/// <param name="arg">The additional argument, associated with data. For example, candle argument.</param>
-		/// <returns>Market data type.</returns>
-		public static MarketDataTypes ToMarketDataType(this MessageTypes type, object arg)
-		{
-			if (_messageTypeMap.TryGetKey(Tuple.Create(type, arg), out var dataType))
-				return dataType;
-
-			throw new ArgumentOutOfRangeException(nameof(type), type, LocalizedStrings.Str1219);
-		}
-
-		/// <summary>
-		/// Convert <see cref="MarketDataTypes"/> to <see cref="MessageTypes"/> value.
-		/// </summary>
-		/// <param name="type">Market data type.</param>
-		/// <param name="arg">The additional argument, associated with data. For example, candle argument.</param>
-		/// <returns>Message type.</returns>
-		public static MessageTypes ToMessageType(this MarketDataTypes type, out object arg)
-		{
-			arg = null;
-
-			switch (type)
-			{
-				case MarketDataTypes.Level1:
-					return MessageTypes.Level1Change;
-				case MarketDataTypes.MarketDepth:
-					return MessageTypes.QuoteChange;
-				case MarketDataTypes.Trades:
-					arg = ExecutionTypes.Tick;
-					return MessageTypes.Execution;
-				case MarketDataTypes.OrderLog:
-					arg = ExecutionTypes.OrderLog;
-					return MessageTypes.Execution;
-				case MarketDataTypes.News:
-					return MessageTypes.News;
-				case MarketDataTypes.Board:
-					return MessageTypes.Board;
-				default:
-				{
-					if (type.IsCandleDataType())
-						return type.ToCandleMessageType();
-
-					throw new ArgumentOutOfRangeException(nameof(type), type, LocalizedStrings.Str1219);
-				}
-			}
-		}
-
-		/// <summary>
 		/// Convert <see cref="string"/> to <see cref="DataType"/> value.
 		/// </summary>
 		/// <param name="type">type.</param>
@@ -909,12 +878,14 @@ namespace StockSharp.Messages
 			if (type.Contains(','))
 			{
 				var messageType = type.To<Type>();
-				return DataType.Create(messageType, messageType.IsCandleMessage() ? messageType.ToCandleArg(arg) : arg);
+				return DataType.Create(messageType, messageType.ToDataTypeArg(arg));
 			}
 			else
 			{
+#pragma warning disable CS0612 // Type or member is obsolete
 				var dataType = type.To<MarketDataTypes>();
-				return dataType.ToDataType(dataType.IsCandleDataType() ? dataType.ToCandleMessage().ToCandleArg(arg) : arg);
+				return dataType.ToDataType(dataType.ToMessageType(out _).ToCandleMessage().ToDataTypeArg(arg));
+#pragma warning restore CS0612 // Type or member is obsolete
 			}
 		}
 
@@ -928,71 +899,9 @@ namespace StockSharp.Messages
 			if (dataType is null)
 				throw new ArgumentNullException(nameof(dataType));
 
-			var type = dataType.MessageType.To<string>();
-			var arg = dataType.IsCandles ? dataType.CandleArgToFolderName() : dataType.Arg.To<string>();
+			var type = dataType.MessageType.GetTypeName(false);
+			var arg = dataType.DataTypeArgToString();
 			return (type, arg);
-		}
-
-		/// <summary>
-		/// Convert <see cref="MarketDataTypes"/> to <see cref="DataType"/> value.
-		/// </summary>
-		/// <param name="type">Market data type.</param>
-		/// <param name="arg">The additional argument, associated with data. For example, candle argument.</param>
-		/// <returns>Data type info.</returns>
-		public static DataType ToDataType(this MarketDataTypes type, object arg)
-		{
-			return type.ToMessageType(out var arg2).ToDataType(arg2 ?? arg);
-		}
-
-		/// <summary>
-		/// Convert <see cref="MessageTypes"/> to <see cref="DataType"/> value.
-		/// </summary>
-		/// <param name="type">Message type.</param>
-		/// <param name="arg">The additional argument, associated with data. For example, candle argument.</param>
-		/// <returns>Data type info.</returns>
-		public static DataType ToDataType(this MessageTypes type, object arg)
-		{
-			switch (type)
-			{
-				case MessageTypes.Security:
-					return DataType.Securities;
-
-				case MessageTypes.Board:
-					return DataType.Board;
-
-				case MessageTypes.Portfolio:
-				case MessageTypes.PositionChange:
-					return DataType.PositionChanges;
-
-				case MessageTypes.News:
-					return DataType.News;
-
-				case MessageTypes.BoardState:
-					return DataType.Board;
-
-				case MessageTypes.Level1Change:
-					return DataType.Level1;
-
-				case MessageTypes.QuoteChange:
-					return DataType.MarketDepth;
-
-				case MessageTypes.Execution:
-					return ((ExecutionTypes)arg).ToDataType();
-
-				case MessageTypes.TimeFrameInfo:
-					return DataType.TimeFrames;
-
-				case MessageTypes.UserInfo:
-					return DataType.Users;
-
-				default:
-				{
-					if (type.IsCandle())
-						return DataType.Create(type.ToCandleMarketDataType().ToCandleMessage(), arg);
-
-					throw new ArgumentOutOfRangeException(nameof(type), type, LocalizedStrings.Str1219);
-				}
-			}
 		}
 
 		/// <summary>
@@ -1016,34 +925,6 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
-		/// Convert <see cref="DataType"/> to <see cref="MarketDataTypes"/> value.
-		/// </summary>
-		/// <param name="dataType">Data type info.</param>
-		/// <returns><see cref="MarketDataTypes"/> value or <see langword="null"/> if cannot be converted.</returns>
-		public static MarketDataTypes? ToMarketDataType(this DataType dataType)
-		{
-			if (dataType == null)
-				throw new ArgumentNullException(nameof(dataType));
-
-			if (dataType == DataType.Ticks)
-				return MarketDataTypes.Trades;
-			else if (dataType == DataType.Level1)
-				return MarketDataTypes.Level1;
-			else if (dataType == DataType.OrderLog)
-				return MarketDataTypes.OrderLog;
-			else if (dataType == DataType.MarketDepth)
-				return MarketDataTypes.MarketDepth;
-			else if (dataType == DataType.News)
-				return MarketDataTypes.News;
-			else if (dataType == DataType.Board)
-				return MarketDataTypes.Board;
-			else if (dataType.IsCandles)
-				return dataType.MessageType.ToCandleMarketDataType();
-			else
-				return null;
-		}
-
-		/// <summary>
 		/// Determines whether the specified market-data type is supported by the adapter.
 		/// </summary>
 		/// <param name="adapter">Adapter.</param>
@@ -1058,7 +939,7 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
-		/// Remove all market data types from <see cref="IMessageAdapter.SupportedInMessages"/>.
+		/// Remove all market data types from <see cref="IMessageAdapter.SupportedMarketDataTypes"/>.
 		/// </summary>
 		/// <param name="adapter">Adapter.</param>
 		public static void RemoveSupportedAllMarketDataTypes(this MessageAdapter adapter)
@@ -1125,13 +1006,14 @@ namespace StockSharp.Messages
 		/// Convert error info into <see cref="ErrorMessage"/>.
 		/// </summary>
 		/// <param name="error">Error info.</param>
+		/// <param name="originalTransactionId">ID of the original message <see cref="ITransactionIdMessage.TransactionId"/> for which this message is a response.</param>
 		/// <returns>Error message.</returns>
-		public static ErrorMessage ToErrorMessage(this Exception error)
+		public static ErrorMessage ToErrorMessage(this Exception error, long originalTransactionId = 0)
 		{
 			if (error == null)
 				throw new ArgumentNullException(nameof(error));
 
-			return new ErrorMessage { Error = error };
+			return new ErrorMessage { Error = error, OriginalTransactionId = originalTransactionId };
 		}
 
 		/// <summary>
@@ -1187,19 +1069,7 @@ namespace StockSharp.Messages
 		/// </summary>
 		/// <param name="field"><see cref="Level1Fields"/> value.</param>
 		/// <returns><see langword="true" />, if obsolete, otherwise, not obsolete.</returns>
-		public static bool IsObsolete(this Level1Fields field)
-		{
-			switch (field)
-			{
-				case Level1Fields.LastTrade:
-				case Level1Fields.BestBid:
-				case Level1Fields.BestAsk:
-				case Level1Fields.ExtensionInfo:
-					return true;
-			}
-
-			return false;
-		}
+		public static bool IsObsolete(this Level1Fields field) => field.GetAttributeOfType<ObsoleteAttribute>() != null;
 
 		/// <summary>
 		/// Try to initialize <see cref="Message.LocalTime"/> by <see cref="ILogSource.CurrentTime"/>.
@@ -1243,12 +1113,13 @@ namespace StockSharp.Messages
 		public static CachedSynchronizedSet<Level1Fields> LastTradeFields { get; } = new CachedSynchronizedSet<Level1Fields>(new[]
 		{
 			Level1Fields.LastTradeId,
+			Level1Fields.LastTradeStringId,
 			Level1Fields.LastTradeTime,
 			Level1Fields.LastTradeOrigin,
 			Level1Fields.LastTradePrice,
 			Level1Fields.LastTradeUpDown,
 			Level1Fields.LastTradeVolume,
-			Level1Fields.IsSystem
+			Level1Fields.IsSystem,
 		});
 
 		/// <summary>
@@ -1274,7 +1145,7 @@ namespace StockSharp.Messages
 		/// <param name="field">Field.</param>
 		/// <returns>Check result.</returns>
 		public static bool IsBestBidField(this Level1Fields field) => BestBidFields.Contains(field);
-		
+
 		/// <summary>
 		/// Fields related to best ask.
 		/// </summary>
@@ -1601,7 +1472,7 @@ namespace StockSharp.Messages
 				message.SecurityType = type.Value;
 			else if (types != null)
 			{
-				var set = types.ToHashSet();
+				var set = types.ToSet();
 
 				if (set.Count <= 0)
 					return;
@@ -1663,6 +1534,33 @@ namespace StockSharp.Messages
 		public static IMessageAdapter CreateAdapter(this Type adapterType, IdGenerator idGenerator)
 		{
 			return adapterType.CreateInstance<IMessageAdapter>(idGenerator);
+		}
+
+		/// <summary>
+		/// Remove adapter by the specified type.
+		/// </summary>
+		/// <typeparam name="TAdapter">The adapter type.</typeparam>
+		/// <param name="adapter">Adapter.</param>
+		/// <returns>Removed adapter or <see langword="null"/>.</returns>
+		public static TAdapter TryRemoveWrapper<TAdapter>(this IMessageAdapter adapter)
+			where TAdapter : IMessageAdapterWrapper
+		{
+			if (adapter is null)
+				throw new ArgumentNullException(nameof(adapter));
+
+			if (adapter is IMessageAdapterWrapper wrapper)
+			{
+				if (wrapper.InnerAdapter is TAdapter found)
+				{
+					wrapper.InnerAdapter = found.InnerAdapter;
+					found.InnerAdapter = null;
+					return found;
+				}
+				else
+					return wrapper.InnerAdapter.TryRemoveWrapper<TAdapter>();
+			}
+			else
+				return default;
 		}
 
 		/// <summary>
@@ -1890,15 +1788,14 @@ namespace StockSharp.Messages
 			=> mdMsg.GetArg<TimeSpan>();
 
 		/// <summary>
-		/// 
+		///
 		/// </summary>
 		/// <param name="message"></param>
 		/// <param name="ex"></param>
-		/// <param name="currentTime"></param>
+		/// <param name="logs"></param>
 		/// <param name="sendOut"></param>
 		/// <param name="getSubscribers"></param>
-		/// <returns></returns>
-		public static bool HandleErrorResponse(this Message message, Exception ex, DateTimeOffset currentTime, Action<Message> sendOut, Func<DataType, long[]> getSubscribers = null)
+		public static void HandleErrorResponse(this Message message, Exception ex, ILogReceiver logs, Action<Message> sendOut, Func<DataType, long[]> getSubscribers = null)
 		{
 			if (message == null)
 				throw new ArgumentNullException(nameof(message));
@@ -1909,12 +1806,10 @@ namespace StockSharp.Messages
 			if (sendOut == null)
 				throw new ArgumentNullException(nameof(sendOut));
 
+			logs.AddErrorLog(ex);
+
 			void SendOutErrorExecution(ExecutionMessage execMsg)
 			{
-				execMsg.ServerTime = currentTime;
-				execMsg.Error = ex;
-				execMsg.OrderState = OrderStates.Failed;
-
 				var subscribers = getSubscribers?.Invoke(DataType.Transactions);
 
 				if (subscribers != null)
@@ -1927,49 +1822,26 @@ namespace StockSharp.Messages
 			{
 				case MessageTypes.Connect:
 					sendOut(new ConnectMessage { Error = ex });
-					return true;
+					break;
 
 				case MessageTypes.Disconnect:
 					sendOut(new DisconnectMessage { Error = ex });
-					return true;
+					break;
 
 				case MessageTypes.OrderRegister:
 				case MessageTypes.OrderReplace:
 				case MessageTypes.OrderCancel:
 				case MessageTypes.OrderGroupCancel:
 				{
-					var replyMsg = ((OrderMessage)message).CreateReply();
+					var replyMsg = ((OrderMessage)message).CreateReply(ex);
 					SendOutErrorExecution(replyMsg);
-					return true;
+					break;
 				}
 				case MessageTypes.OrderPairReplace:
 				{
-					var replyMsg = ((OrderPairReplaceMessage)message).Message1.CreateReply();
+					var replyMsg = ((OrderPairReplaceMessage)message).Message1.CreateReply(ex);
 					SendOutErrorExecution(replyMsg);
-					return true;
-				}
-
-				case MessageTypes.MarketData:
-				case MessageTypes.Portfolio:
-				case MessageTypes.OrderStatus:
-				case MessageTypes.SecurityLookup:
-				case MessageTypes.BoardLookup:
-				case MessageTypes.PortfolioLookup:
-				case MessageTypes.UserLookup:
-				{
-					sendOut(((ISubscriptionMessage)message).CreateResponse(ex));
-					return true;
-				}
-
-				case MessageTypes.UserRequest:
-				{
-					var requestMsg = (UserRequestMessage)message;
-					sendOut(new UserRequestMessage
-					{
-						OriginalTransactionId = requestMsg.TransactionId,
-						Error = ex
-					});
-					return true;
+					break;
 				}
 
 				case MessageTypes.ChangePassword:
@@ -1980,11 +1852,19 @@ namespace StockSharp.Messages
 						OriginalTransactionId = pwdMsg.TransactionId,
 						Error = ex
 					});
-					return true;
+					break;
+				}
+
+				default:
+				{
+					if (message is ISubscriptionMessage subscrMsg)
+						sendOut(subscrMsg.CreateResponse(ex));
+					else
+						sendOut(ex.ToErrorMessage((message as ITransactionIdMessage)?.TransactionId ?? 0));
+
+					break;
 				}
 			}
-
-			return false;
 		}
 
 		/// <summary>
@@ -2034,35 +1914,6 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
-		/// Is the data type required security info.
-		/// </summary>
-		/// <param name="type">Market data type.</param>
-		/// <returns>Check result.</returns>
-		public static bool IsSecurityRequired(this MarketDataTypes type)
-			=> type != MarketDataTypes.News && type != MarketDataTypes.Board;
-
-		/// <summary>
-		/// Is the data type required security info.
-		/// </summary>
-		/// <param name="type">Data type info.</param>
-		/// <returns>Check result.</returns>
-		public static bool IsSecurityRequired(this DataType type)
-			=> type != DataType.News && type != DataType.Board;
-
-		/// <summary>
-		/// Remove lookup messages support.
-		/// </summary>
-		/// <param name="adapter">Adapter.</param>
-		public static void RemoveLookupMessages(this MessageAdapter adapter)
-		{
-			if (adapter == null)
-				throw new ArgumentNullException(nameof(adapter));
-
-			foreach (var type in _lookupResults)
-				adapter.RemoveSupportedMessage(type);
-		}
-
-		/// <summary>
 		/// Determines whether the <paramref name="execMsg"/> contains market-data info.
 		/// </summary>
 		/// <param name="execMsg">The message contains information about the execution.</param>
@@ -2075,23 +1926,6 @@ namespace StockSharp.Messages
 			return execMsg.ExecutionType == ExecutionTypes.Tick || execMsg.ExecutionType == ExecutionTypes.OrderLog;
 		}
 
-		private static readonly HashSet<MessageTypes> _lookupResults = new HashSet<MessageTypes>
-		{
-			MessageTypes.SecurityLookup,
-			MessageTypes.BoardLookup,
-			MessageTypes.UserLookup,
-			MessageTypes.TimeFrameLookup,
-			MessageTypes.PortfolioLookup,
-			MessageTypes.OrderStatus,
-		};
-
-		/// <summary>
-		/// Determines the specified type is lookup.
-		/// </summary>
-		/// <param name="type">Message type.</param>
-		/// <returns>Check result.</returns>
-		public static bool IsLookup(this MessageTypes type) => _lookupResults.Contains(type);
-		
 		/// <summary>
 		/// Get <see cref="ExecutionMessage.TradePrice"/>.
 		/// </summary>
@@ -2248,7 +2082,7 @@ namespace StockSharp.Messages
 		/// <param name="mode">Back mode.</param>
 		/// <returns>Message.</returns>
 		public static TMessage LoopBack<TMessage>(this TMessage message, IMessageAdapter adapter, MessageBackModes mode = MessageBackModes.Direct)
-			where TMessage : Message
+			where TMessage : IMessage
 		{
 			if (message == null)
 				throw new ArgumentNullException(nameof(message));
@@ -2266,7 +2100,7 @@ namespace StockSharp.Messages
 		/// <param name="message">Message.</param>
 		/// <returns>Message.</returns>
 		public static TMessage UndoBack<TMessage>(this TMessage message)
-			where TMessage : Message
+			where TMessage : IMessage
 		{
 			if (message == null)
 				throw new ArgumentNullException(nameof(message));
@@ -2282,7 +2116,7 @@ namespace StockSharp.Messages
 		/// </summary>
 		/// <param name="message">Message.</param>
 		/// <returns>Is loopback message.</returns>
-		public static bool IsBack(this Message message)
+		public static bool IsBack(this IMessage message)
 		{
 			if (message is null)
 				throw new ArgumentNullException(nameof(message));
@@ -2305,7 +2139,7 @@ namespace StockSharp.Messages
 			if (dataType == null)
 				throw new ArgumentNullException(nameof(dataType));
 
-			iterationInterval = TimeSpan.FromSeconds(2);
+			iterationInterval = adapter.IterationInterval;
 
 			if (dataType.IsCandles)
 			{
@@ -2338,30 +2172,27 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
+		/// Get maximum possible items count per single subscription request.
+		/// </summary>
+		/// <param name="dataType">Data type info.</param>
+		/// <returns>Max items count.</returns>
+		public static int? GetDefaultMaxCount(this DataType dataType)
+		{
+			if (dataType == DataType.Ticks ||
+				dataType == DataType.Level1 ||
+				dataType == DataType.OrderLog ||
+				dataType == DataType.MarketDepth)
+				return 1000;
+
+			return null;
+		}
+
+		/// <summary>
 		/// Determines the specified type is crypto currency.
 		/// </summary>
 		/// <param name="type">Currency type.</param>
 		/// <returns>Check result.</returns>
 		public static bool IsCrypto(this CurrencyTypes type) => type.GetAttributeOfType<CryptoAttribute>() != null;
-
-		/// <summary>
-		/// Determines the specified type is lookup.
-		/// </summary>
-		/// <param name="dataType">Data type info.</param>
-		/// <returns>Check result.</returns>
-		public static bool IsLookup(this DataType dataType)
-		{
-			if (dataType == null)
-				throw new ArgumentNullException(nameof(dataType));
-
-			return
-				dataType == DataType.Transactions ||
-				dataType == DataType.Securities ||
-				dataType == DataType.PositionChanges ||
-				dataType == DataType.TimeFrames ||
-				dataType == DataType.Users ||
-				dataType == DataType.Transactions;
-		}
 
 		/// <summary>
 		/// StockSharp news source.
@@ -2514,14 +2345,34 @@ namespace StockSharp.Messages
 			{
 				ExecutionType = ExecutionTypes.Tick,
 				SecurityId = level1.SecurityId,
-				TradeId = (long?)level1.Changes.TryGetValue(Level1Fields.LastTradeId),
-				TradePrice = (decimal?)level1.Changes.TryGetValue(Level1Fields.LastTradePrice),
-				TradeVolume = (decimal?)level1.Changes.TryGetValue(Level1Fields.LastTradeVolume),
-				OriginSide = (Sides?)level1.Changes.TryGetValue(Level1Fields.LastTradeOrigin),
-				ServerTime = (DateTimeOffset?)level1.Changes.TryGetValue(Level1Fields.LastTradeTime) ?? level1.ServerTime,
-				IsUpTick = (bool?)level1.Changes.TryGetValue(Level1Fields.LastTradeUpDown),
+				TradeId = (long?)level1.TryGet(Level1Fields.LastTradeId),
+				TradePrice = level1.TryGetDecimal(Level1Fields.LastTradePrice),
+				TradeVolume = level1.TryGetDecimal(Level1Fields.LastTradeVolume),
+				OriginSide = (Sides?)level1.TryGet(Level1Fields.LastTradeOrigin),
+				ServerTime = (DateTimeOffset?)level1.TryGet(Level1Fields.LastTradeTime) ?? level1.ServerTime,
+				IsUpTick = (bool?)level1.TryGet(Level1Fields.LastTradeUpDown),
 				LocalTime = level1.LocalTime,
+				BuildFrom = level1.BuildFrom ?? DataType.Level1,
 			};
+		}
+
+		/// <summary>
+		/// To check, are there <see cref="DataType.CandleTimeFrame"/> in the level1 data.
+		/// </summary>
+		/// <param name="level1">Level1 data.</param>
+		/// <returns>The test result.</returns>
+		public static bool IsContainsCandle(this Level1ChangeMessage level1)
+		{
+			if (level1 is null)
+				throw new ArgumentNullException(nameof(level1));
+
+			var changes = level1.Changes;
+
+			return
+				changes.ContainsKey(Level1Fields.OpenPrice) ||
+				changes.ContainsKey(Level1Fields.HighPrice) ||
+				changes.ContainsKey(Level1Fields.LowPrice) ||
+				changes.ContainsKey(Level1Fields.ClosePrice);
 		}
 
 		private class OrderBookEnumerable : SimpleEnumerable<QuoteChangeMessage>//, IEnumerableEx<QuoteChangeMessage>
@@ -2556,10 +2407,10 @@ namespace StockSharp.Messages
 						var prevAskPrice = _prevAskPrice;
 						var prevAskVolume = _prevAskVolume;
 
-						_prevBidPrice = (decimal?)level1.Changes.TryGetValue(Level1Fields.BestBidPrice) ?? _prevBidPrice;
-						_prevBidVolume = (decimal?)level1.Changes.TryGetValue(Level1Fields.BestBidVolume) ?? _prevBidVolume;
-						_prevAskPrice = (decimal?)level1.Changes.TryGetValue(Level1Fields.BestAskPrice) ?? _prevAskPrice;
-						_prevAskVolume = (decimal?)level1.Changes.TryGetValue(Level1Fields.BestAskVolume) ?? _prevAskVolume;
+						_prevBidPrice = level1.TryGetDecimal(Level1Fields.BestBidPrice) ?? _prevBidPrice;
+						_prevBidVolume = level1.TryGetDecimal(Level1Fields.BestBidVolume) ?? _prevBidVolume;
+						_prevAskPrice = level1.TryGetDecimal(Level1Fields.BestAskPrice) ?? _prevAskPrice;
+						_prevAskVolume = level1.TryGetDecimal(Level1Fields.BestAskVolume) ?? _prevAskVolume;
 
 						if (_prevBidPrice == 0)
 							_prevBidPrice = null;
@@ -2577,6 +2428,7 @@ namespace StockSharp.Messages
 							ServerTime = level1.ServerTime,
 							Bids = _prevBidPrice == null ? ArrayHelper.Empty<QuoteChange>() : new[] { new QuoteChange(_prevBidPrice.Value, _prevBidVolume ?? 0) },
 							Asks = _prevAskPrice == null ? ArrayHelper.Empty<QuoteChange>() : new[] { new QuoteChange(_prevAskPrice.Value, _prevAskVolume ?? 0) },
+							BuildFrom = level1.BuildFrom ?? DataType.Level1,
 						};
 
 						return true;
@@ -2649,16 +2501,16 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
-		/// Check if the specified identifier is <see cref="SecurityId.All"/>.
+		/// Check if the specified identifier is <see cref="IsAllSecurity"/>.
 		/// </summary>
 		/// <param name="securityId">Security ID.</param>
-		/// <returns><see langword="true"/>, if the specified identifier is <see cref="SecurityId.All"/>, otherwise, <see langword="false"/>.</returns>
+		/// <returns><see langword="true"/>, if the specified identifier is <see cref="IsAllSecurity"/>, otherwise, <see langword="false"/>.</returns>
 		public static bool IsAllSecurity(this SecurityId securityId)
 		{
 			//if (security == null)
 			//	throw new ArgumentNullException(nameof(security));
 
-			return securityId.SecurityCode.CompareIgnoreCase(SecurityId.AssociatedBoardCode) && securityId.BoardCode.CompareIgnoreCase(SecurityId.AssociatedBoardCode);
+			return securityId == default || (securityId.SecurityCode.CompareIgnoreCase(SecurityId.AssociatedBoardCode) && securityId.BoardCode.CompareIgnoreCase(SecurityId.AssociatedBoardCode));
 		}
 
 		/// <summary>
@@ -2781,6 +2633,9 @@ namespace StockSharp.Messages
 				case Level1Fields.LastTradeOrigin:
 					return typeof(Sides);
 
+				case Level1Fields.LastTradeStringId:
+					return typeof(string);
+
 				default:
 					return field.IsObsolete() ? null : typeof(decimal);
 			}
@@ -2822,8 +2677,8 @@ namespace StockSharp.Messages
 		/// <returns><see cref="Level1ChangeMessage"/> instance.</returns>
 		public static Level1ChangeMessage ToLevel1(this QuoteChangeMessage message)
 		{
-			var bestBid = message.GetBestBid();
-			var bestAsk = message.GetBestAsk();
+			var b = message.GetBestBid();
+			var a = message.GetBestAsk();
 
 			var level1 = new Level1ChangeMessage
 			{
@@ -2831,14 +2686,18 @@ namespace StockSharp.Messages
 				ServerTime = message.ServerTime,
 			};
 
-			if (bestBid != null)
+			if (b != null)
 			{
+				var bestBid = b.Value;
+
 				level1.Add(Level1Fields.BestBidPrice, bestBid.Price);
 				level1.Add(Level1Fields.BestBidVolume, bestBid.Volume);
 			}
 
-			if (bestAsk != null)
+			if (a != null)
 			{
+				var bestAsk = a.Value;
+
 				level1.Add(Level1Fields.BestAskPrice, bestAsk.Price);
 				level1.Add(Level1Fields.BestAskVolume, bestAsk.Volume);
 			}
@@ -2856,13 +2715,14 @@ namespace StockSharp.Messages
 			var level1 = new Level1ChangeMessage
 			{
 				SecurityId = message.SecurityId,
-				ServerTime = message.OpenTime,
+				ServerTime = message.CloseTime == default ? message.OpenTime : message.CloseTime,
 			}
 			.Add(Level1Fields.OpenPrice, message.OpenPrice)
 			.Add(Level1Fields.HighPrice, message.HighPrice)
 			.Add(Level1Fields.LowPrice, message.LowPrice)
 			.Add(Level1Fields.ClosePrice, message.ClosePrice)
-			.Add(Level1Fields.Volume, message.TotalVolume)
+			.TryAdd(Level1Fields.Volume, message.TotalVolume)
+			.TryAdd(Level1Fields.TradesCount, message.TotalTicks)
 			.TryAdd(Level1Fields.OpenInterest, message.OpenInterest, true);
 
 			return level1;
@@ -2883,6 +2743,7 @@ namespace StockSharp.Messages
 			.TryAdd(Level1Fields.LastTradeId, message.TradeId)
 			.TryAdd(Level1Fields.LastTradePrice, message.TradePrice)
 			.TryAdd(Level1Fields.LastTradeVolume, message.TradeVolume)
+			.TryAdd(Level1Fields.LastTradeUpDown, message.IsUpTick)
 			.TryAdd(Level1Fields.OpenInterest, message.OpenInterest, true)
 			.TryAdd(Level1Fields.LastTradeOrigin, message.OriginSide);
 
@@ -2905,6 +2766,7 @@ namespace StockSharp.Messages
 				{
 					SecurityId = quote.SecurityId,
 					ServerTime = quote.ServerTime,
+					BuildFrom = quote.BuildFrom ?? DataType.MarketDepth,
 				};
 
 				if (quote.Bids.Length > 0)
@@ -2934,17 +2796,6 @@ namespace StockSharp.Messages
 			=> dataTypes.Where(t => t.MessageType == typeof(TimeFrameCandleMessage) && t.Arg != null).Select(t => (TimeSpan)t.Arg);
 
 		/// <summary>
-		/// 
-		/// </summary>
-		/// <typeparam name="TField"></typeparam>
-		/// <param name="field"></param>
-		/// <returns></returns>
-		public static string GetFieldDescription<TField>(this TField field)
-		{
-			return field.GetType().GetField(field.ToString()).GetAttribute<DisplayAttribute>()?.GetDescription();
-		}
-
-		/// <summary>
 		/// To determine whether the order book is in the right state.
 		/// </summary>
 		/// <param name="book">Order book.</param>
@@ -2960,12 +2811,12 @@ namespace StockSharp.Messages
 			var bids = book.IsSorted ? book.Bids : book.Bids.OrderByDescending(b => b.Price).ToArray();
 			var asks = book.IsSorted ? book.Asks : book.Asks.OrderBy(b => b.Price).ToArray();
 
-			var bestBid = bids.FirstOrDefault();
-			var bestAsk = asks.FirstOrDefault();
+			var bestBid = bids.FirstOr();
+			var bestAsk = asks.FirstOr();
 
 			if (bestBid != null && bestAsk != null)
 			{
-				return bids.All(b => b.Price < bestAsk.Price) && asks.All(a => a.Price > bestBid.Price) && Verify(bids, true) && Verify(asks, false);
+				return bids.All(b => b.Price < bestAsk.Value.Price) && asks.All(a => a.Price > bestBid.Value.Price) && Verify(bids, true) && Verify(asks, false);
 			}
 			else
 			{
@@ -3007,10 +2858,1302 @@ namespace StockSharp.Messages
 
 		private static bool Verify(QuoteChange quote)
 		{
-			if (quote is null)
-				throw new ArgumentNullException(nameof(quote));
-
 			return quote.Price > 0 && quote.Volume > 0;
 		}
+
+		/// <summary>
+		/// Determines the specified message is matched lookup criteria.
+		/// </summary>
+		/// <param name="message">Message.</param>
+		/// <param name="criteria">The message which fields will be used as a filter.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsMatch(this ISubscriptionIdMessage message, ISubscriptionMessage criteria)
+		{
+			switch (message.Type)
+			{
+				case MessageTypes.Security:
+				{
+					if (criteria is SecurityLookupMessage lookupMsg)
+						return ((SecurityMessage)message).IsMatch(lookupMsg);
+
+					return true;
+				}
+				case MessageTypes.Board:
+				{
+					if (criteria is BoardLookupMessage lookupMsg)
+						return ((BoardMessage)message).IsMatch(lookupMsg);
+
+					return true;
+				}
+				case MessageTypes.Portfolio:
+				{
+					if (criteria is PortfolioLookupMessage lookupMsg)
+						return ((PortfolioMessage)message).IsMatch(lookupMsg, true);
+
+					return true;
+				}
+				case MessageTypes.PositionChange:
+				{
+					if (criteria is PortfolioLookupMessage lookupMsg)
+						return ((PositionChangeMessage)message).IsMatch(lookupMsg, true);
+
+					return true;
+				}
+				case MessageTypes.Execution:
+				{
+					var execMsg = (ExecutionMessage)message;
+
+					if (execMsg.IsMarketData())
+					{
+						//if (criteria is MarketDataMessage mdMsg)
+						//	return execMsg.IsMatch(mdMsg);
+
+						return true;
+					}
+					else
+					{
+						if (criteria is OrderStatusMessage statusMsg)
+							return execMsg.IsMatch(statusMsg);
+
+						return true;
+					}
+				}
+				//case MessageTypes.QuoteChange:
+				//{
+				//	if (criteria is MarketDataMessage mdMsg)
+				//		return ((QuoteChangeMessage)message).IsMatch(mdMsg);
+
+				//	return true;
+				//}
+
+				default:
+				{
+					//if (message.Type.IsCandle())
+					//{
+					//	if (criteria is MarketDataMessage mdMsg)
+					//		return message.IsMatch(mdMsg);
+
+					//	return true;
+					//}
+
+					return true;
+				}
+			}
+		}
+
+		/// <summary>
+		/// Determines the specified message is matched lookup criteria.
+		/// </summary>
+		/// <param name="board">Board.</param>
+		/// <param name="criteria">The message which fields will be used as a filter.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsMatch(this BoardMessage board, BoardLookupMessage criteria)
+		{
+			if (board is null)
+				throw new ArgumentNullException(nameof(board));
+
+			if (criteria is null)
+				throw new ArgumentNullException(nameof(criteria));
+
+			if (!criteria.Like.IsEmpty() && !board.Code.ContainsIgnoreCase(criteria.Like))
+				return false;
+
+			return true;
+		}
+
+		/// <summary>
+		/// Determines the specified message is matched lookup criteria.
+		/// </summary>
+		/// <param name="portfolio">Portfolio.</param>
+		/// <param name="criteria">The message which fields will be used as a filter.</param>
+		/// <param name="compareName">Fully compare <see cref="PortfolioMessage.PortfolioName"/>.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsMatch(this PortfolioMessage portfolio, PortfolioLookupMessage criteria, bool compareName)
+		{
+			if (portfolio is null)
+				throw new ArgumentNullException(nameof(portfolio));
+
+			if (criteria is null)
+				throw new ArgumentNullException(nameof(criteria));
+
+			if (!criteria.PortfolioName.IsEmpty())
+			{
+				if (compareName && !!portfolio.PortfolioName.CompareIgnoreCase(criteria.PortfolioName))
+					return false;
+				else if (!compareName && !portfolio.PortfolioName.ContainsIgnoreCase(criteria.PortfolioName))
+					return false;
+			}
+
+			if (!criteria.BoardCode.IsEmpty() && !portfolio.BoardCode.CompareIgnoreCase(criteria.BoardCode))
+				return false;
+
+			if (!criteria.ClientCode.IsEmpty() && !portfolio.ClientCode.CompareIgnoreCase(criteria.ClientCode))
+				return false;
+
+			if (criteria.Currency != null && portfolio.Currency != criteria.Currency)
+				return false;
+
+			return true;
+		}
+
+		/// <summary>
+		/// Determines the specified message is matched lookup criteria.
+		/// </summary>
+		/// <param name="position">Position.</param>
+		/// <param name="criteria">The message which fields will be used as a filter.</param>
+		/// <param name="compareName">Fully compare <see cref="PositionChangeMessage.PortfolioName"/>.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsMatch(this PositionChangeMessage position, PortfolioLookupMessage criteria, bool compareName)
+		{
+			if (position is null)
+				throw new ArgumentNullException(nameof(position));
+
+			if (criteria is null)
+				throw new ArgumentNullException(nameof(criteria));
+
+			if (!criteria.PortfolioName.IsEmpty())
+			{
+				if (compareName && !!position.PortfolioName.CompareIgnoreCase(criteria.PortfolioName))
+					return false;
+				else if (!compareName && !position.PortfolioName.ContainsIgnoreCase(criteria.PortfolioName))
+					return false;
+			}
+
+			if (criteria.SecurityId != null && position.SecurityId != criteria.SecurityId.Value)
+				return false;
+
+			if (!criteria.BoardCode.IsEmpty() && !position.BoardCode.CompareIgnoreCase(criteria.BoardCode))
+				return false;
+
+			if (!criteria.ClientCode.IsEmpty() && !position.ClientCode.CompareIgnoreCase(criteria.ClientCode))
+				return false;
+
+			if (!criteria.StrategyId.IsEmpty() && !position.StrategyId.CompareIgnoreCase(criteria.StrategyId))
+				return false;
+
+			if (criteria.Side != null && position.Side != criteria.Side)
+				return false;
+
+			return true;
+		}
+
+		/// <summary>
+		/// Determines the specified message is matched lookup criteria.
+		/// </summary>
+		/// <param name="transaction">Transaction.</param>
+		/// <param name="criteria">The message which fields will be used as a filter.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsMatch(this ExecutionMessage transaction, OrderStatusMessage criteria)
+		{
+			if (transaction.IsMarketData())
+				throw new ArgumentException(nameof(transaction));
+
+			if (criteria is null)
+				throw new ArgumentNullException(nameof(criteria));
+
+			return transaction.IsMatch(criteria, criteria.States.ToSet());
+		}
+
+		/// <summary>
+		/// Determines the specified transaction is matched lookup criteria.
+		/// </summary>
+		/// <param name="transaction">Transaction.</param>
+		/// <param name="criteria">The order which fields will be used as a filter.</param>
+		/// <param name="states">Filter order by the specified states.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsMatch(this ExecutionMessage transaction, OrderStatusMessage criteria, ISet<OrderStates> states)
+		{
+			if (transaction.IsMarketData())
+				throw new ArgumentException(nameof(transaction));
+
+			if (criteria is null)
+				throw new ArgumentNullException(nameof(criteria));
+
+			if (states is null)
+				throw new ArgumentNullException(nameof(states));
+
+			if (criteria.SecurityId != default && criteria.SecurityId != transaction.SecurityId)
+				return false;
+
+			if (states.Count > 0 && transaction.OrderState != null && !states.Contains(transaction.OrderState.Value))
+				return false;
+
+			if (criteria.Side != default && criteria.Side != transaction.Side)
+				return false;
+
+			if (criteria.Volume != default && criteria.Volume != transaction.OrderVolume)
+				return false;
+
+			if (!criteria.StrategyId.IsEmpty() && !criteria.StrategyId.CompareIgnoreCase(transaction.StrategyId))
+				return false;
+
+			if (!criteria.PortfolioName.IsEmpty() && !criteria.PortfolioName.CompareIgnoreCase(transaction.PortfolioName))
+				return false;
+
+			return true;
+		}
+
+		/// <summary>
+		/// Determines the specified security is matched lookup criteria.
+		/// </summary>
+		/// <param name="security">Security.</param>
+		/// <param name="criteria">Message security lookup for specified criteria.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsMatch(this SecurityMessage security, SecurityLookupMessage criteria)
+		{
+			return security.IsMatch(criteria, criteria.GetSecurityTypes());
+		}
+
+		/// <summary>
+		/// Determines the specified security is matched lookup criteria.
+		/// </summary>
+		/// <param name="security">Security.</param>
+		/// <param name="criteria">Message security lookup for specified criteria.</param>
+		/// <param name="secTypes">Securities types.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsMatch(this SecurityMessage security, SecurityLookupMessage criteria, HashSet<SecurityTypes> secTypes)
+		{
+			var secId = criteria.SecurityId;
+
+			if (!secId.SecurityCode.IsEmpty() && !security.SecurityId.SecurityCode.ContainsIgnoreCase(secId.SecurityCode))
+				return false;
+
+			if (!secId.BoardCode.IsEmpty() && !security.SecurityId.BoardCode.CompareIgnoreCase(secId.BoardCode))
+				return false;
+
+			// sec + board codes means exact id
+			if (!secId.SecurityCode.IsEmpty() && !secId.BoardCode.IsEmpty())
+			{
+				if (security.SecurityId != secId)
+					return false;
+			}
+
+			if (secTypes.Count > 0)
+			{
+				if (security.SecurityType == null || !secTypes.Contains(security.SecurityType.Value))
+					return false;
+			}
+
+			if (criteria.SecurityIds.Length > 0)
+			{
+				if (!criteria.SecurityIds.Contains(security.SecurityId))
+					return false;
+			}
+
+			if (!secId.Bloomberg.IsEmptyOrWhiteSpace() && !security.SecurityId.Bloomberg.ContainsIgnoreCase(secId.Bloomberg))
+				return false;
+
+			if (!secId.Cusip.IsEmptyOrWhiteSpace() && !security.SecurityId.Cusip.ContainsIgnoreCase(secId.Cusip))
+				return false;
+
+			if (!secId.IQFeed.IsEmptyOrWhiteSpace() && !security.SecurityId.IQFeed.ContainsIgnoreCase(secId.IQFeed))
+				return false;
+
+			if (!secId.Isin.IsEmptyOrWhiteSpace() && !security.SecurityId.Isin.ContainsIgnoreCase(secId.Isin))
+				return false;
+
+			if (!secId.Ric.IsEmptyOrWhiteSpace() && !security.SecurityId.Ric.ContainsIgnoreCase(secId.Ric))
+				return false;
+
+			if (!secId.Sedol.IsEmptyOrWhiteSpace() && !security.SecurityId.Sedol.ContainsIgnoreCase(secId.Sedol))
+				return false;
+
+			if (!criteria.Name.IsEmptyOrWhiteSpace() && !security.Name.ContainsIgnoreCase(criteria.Name))
+				return false;
+
+			if (!criteria.ShortName.IsEmptyOrWhiteSpace() && !security.ShortName.ContainsIgnoreCase(criteria.ShortName))
+				return false;
+
+			if (criteria.VolumeStep != null && security.VolumeStep != criteria.VolumeStep)
+				return false;
+
+			if (criteria.MinVolume != null && security.MinVolume != criteria.MinVolume)
+				return false;
+
+			if (criteria.MaxVolume != null && security.MaxVolume != criteria.MaxVolume)
+				return false;
+
+			if (criteria.Multiplier != null && security.Multiplier != criteria.Multiplier)
+				return false;
+
+			if (criteria.Decimals != null && security.Decimals != criteria.Decimals)
+				return false;
+
+			if (criteria.PriceStep != null && security.PriceStep != criteria.PriceStep)
+				return false;
+
+			if (!criteria.CfiCode.IsEmptyOrWhiteSpace() && !security.CfiCode.ContainsIgnoreCase(criteria.CfiCode))
+				return false;
+
+			if (criteria.ExpiryDate != null && security.ExpiryDate != criteria.ExpiryDate)
+				return false;
+
+			if (criteria.SettlementDate != null && security.SettlementDate != criteria.SettlementDate)
+				return false;
+
+			if (!criteria.UnderlyingSecurityCode.IsEmpty() && !security.UnderlyingSecurityCode.ContainsIgnoreCase(criteria.UnderlyingSecurityCode))
+				return false;
+
+			if (criteria.UnderlyingSecurityMinVolume != null && security.UnderlyingSecurityMinVolume != criteria.UnderlyingSecurityMinVolume)
+				return false;
+
+			if (criteria.Strike != null && security.Strike != criteria.Strike)
+				return false;
+
+			if (criteria.OptionType != null && security.OptionType != criteria.OptionType)
+				return false;
+
+			if (!criteria.BinaryOptionType.IsEmptyOrWhiteSpace() && !security.BinaryOptionType.ContainsIgnoreCase(criteria.BinaryOptionType))
+				return false;
+
+			if (criteria.Currency != null && security.Currency != criteria.Currency)
+				return false;
+
+			if (!criteria.Class.IsEmptyOrWhiteSpace() && !security.Class.ContainsIgnoreCase(criteria.Class))
+				return false;
+
+			if (criteria.IssueSize != null && security.IssueSize != criteria.IssueSize)
+				return false;
+
+			if (criteria.IssueDate != null && security.IssueDate != criteria.IssueDate)
+				return false;
+
+			if (criteria.UnderlyingSecurityType != null && security.UnderlyingSecurityType != criteria.UnderlyingSecurityType)
+				return false;
+
+			if (criteria.Shortable != null && security.Shortable != criteria.Shortable)
+				return false;
+
+			if (!criteria.BasketCode.IsEmptyOrWhiteSpace() && !security.BasketCode.ContainsIgnoreCase(criteria.BasketCode))
+				return false;
+
+			if (!criteria.BasketExpression.IsEmptyOrWhiteSpace() && !security.BasketExpression.CompareIgnoreCase(criteria.BasketExpression))
+				return false;
+
+			if (criteria.FaceValue != default && security.FaceValue != criteria.FaceValue)
+				return false;
+
+			if (criteria.PrimaryId != default && security.PrimaryId != criteria.PrimaryId)
+				return false;
+
+			if (!criteria.BoardCode.IsEmptyOrWhiteSpace() && !security.SecurityId.BoardCode.CompareIgnoreCase(criteria.BoardCode))
+				return false;
+
+			return true;
+		}
+
+		/// <summary>
+		/// To filter instruments by the given criteria.
+		/// </summary>
+		/// <param name="securities">Securities.</param>
+		/// <param name="criteria">Message security lookup for specified criteria.</param>
+		/// <returns>Instruments filtered.</returns>
+		public static IEnumerable<SecurityMessage> Filter(this IEnumerable<SecurityMessage> securities, SecurityLookupMessage criteria)
+		{
+			if (securities == null)
+				throw new ArgumentNullException(nameof(securities));
+
+			if (criteria.IsLookupAll())
+				return securities.ToArray();
+
+			var secTypes = criteria.GetSecurityTypes();
+
+			var result = securities.Where(s => s.IsMatch(criteria, secTypes));
+
+			if (criteria.Skip != null)
+				result = result.Skip((int)criteria.Skip.Value);
+
+			if (criteria.Count != null)
+				result = result.Take((int)criteria.Count.Value);
+
+			return result.ToArray();
+		}
+
+		/// <summary>
+		/// "All securities" instance.
+		/// </summary>
+		public static SecurityMessage AllSecurity { get; } = new SecurityMessage();
+
+		/// <summary>
+		/// Lookup all securities predefined criteria.
+		/// </summary>
+		public static readonly SecurityLookupMessage LookupAllCriteriaMessage = new SecurityLookupMessage();
+
+		/// <summary>
+		/// Determine the <paramref name="criteria"/> contains lookup all filter.
+		/// </summary>
+		/// <param name="criteria">The instrument whose fields will be used as a filter.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsLookupAll(this SecurityLookupMessage criteria)
+		{
+			if (criteria == null)
+				throw new ArgumentNullException(nameof(criteria));
+
+			if (criteria == LookupAllCriteriaMessage)
+				return true;
+
+			return
+				criteria.SecurityId.IsDefault() &&
+				criteria.Name.IsEmpty() &&
+				criteria.ShortName.IsEmpty() &&
+				criteria.VolumeStep == null &&
+				criteria.MinVolume == null &&
+				criteria.MaxVolume == null &&
+				criteria.Multiplier == null &&
+				criteria.Decimals == null &&
+				criteria.PriceStep == null &&
+				criteria.SecurityType == null &&
+				criteria.CfiCode.IsEmpty() &&
+				criteria.ExpiryDate == null &&
+				criteria.SettlementDate == null &&
+				criteria.UnderlyingSecurityCode.IsEmpty() &&
+				criteria.UnderlyingSecurityMinVolume == null &&
+				criteria.Strike == null &&
+				criteria.OptionType == null &&
+				criteria.BinaryOptionType.IsEmpty() &&
+				criteria.Currency == null &&
+				criteria.Class.IsEmpty() &&
+				criteria.IssueSize == null &&
+				criteria.IssueDate == null &&
+				criteria.UnderlyingSecurityType == null &&
+				criteria.Shortable == null &&
+				criteria.BasketCode.IsEmpty() &&
+				criteria.BasketExpression.IsEmpty() &&
+				criteria.FaceValue == null &&
+				criteria.PrimaryId == default &&
+				(criteria.SecurityTypes == null || criteria.SecurityTypes.Length == 0) &&
+				criteria.Count == null &&
+				criteria.SecurityIds.Length == 0;
+		}
+
+		/// <summary>
+		/// Change <see cref="IMessageAdapter.SupportedInMessages"/>.
+		/// </summary>
+		/// <param name="adapter">Adapter.</param>
+		/// <param name="add">Command.</param>
+		/// <param name="isMarketData">Message types.</param>
+		public static void ChangeSupported(this IMessageAdapter adapter, bool add, bool isMarketData)
+		{
+			if (adapter is null)
+				throw new ArgumentNullException(nameof(adapter));
+
+			var types = adapter.PossibleSupportedMessages.Where(i => i.IsMarketData == isMarketData).Select(i => i.Type);
+
+			var supported = add
+				? adapter.SupportedInMessages.Concat(types)
+				: adapter.SupportedInMessages.Except(types);
+
+			adapter.SupportedInMessages = supported.Distinct().ToArray();
+		}
+
+		private static readonly SynchronizedDictionary<DataType, MessageTypes> _messageTypes = new SynchronizedDictionary<DataType, MessageTypes>();
+
+		/// <summary>
+		/// Convert <see cref="DataType"/> to <see cref="MessageTypes"/> value.
+		/// </summary>
+		/// <param name="type"><see cref="DataType"/> value.</param>
+		/// <returns>Message type.</returns>
+		public static MessageTypes ToMessageType2(this DataType type)
+		{
+			if (type is null)
+				throw new ArgumentNullException(nameof(type));
+
+			if (type == DataType.Level1)
+				return MessageTypes.Level1Change;
+			else if (type == DataType.MarketDepth)
+				return MessageTypes.QuoteChange;
+			else if (type == DataType.Ticks || type == DataType.OrderLog || type == DataType.Transactions)
+				return MessageTypes.Execution;
+			else if (type == DataType.News)
+				return MessageTypes.News;
+			else if (type == DataType.Board)
+				return MessageTypes.Board;
+			else if (type == DataType.BoardState)
+				return MessageTypes.BoardState;
+			else if (type == DataType.Securities)
+				return MessageTypes.Security;
+			else if (type == DataType.SecurityLegs)
+				return MessageTypes.SecurityLegsInfo;
+			else if (type == DataType.SecurityRoute)
+				return MessageTypes.SecurityRoute;
+			else if (type == DataType.TimeFrames)
+				return MessageTypes.TimeFrameInfo;
+			else if (type.IsCandles)
+				return type.MessageType.ToMessageType();
+			else
+			{
+				return _messageTypes.SafeAdd(type, key => key.MessageType.ToMessageType());
+				//throw new ArgumentOutOfRangeException(nameof(type), type, LocalizedStrings.Str1219);
+			}
+		}
+
+		/// <summary>
+		/// Is channel opened.
+		/// </summary>
+		/// <param name="channel">Message channel.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsOpened(this IMessageChannel channel)
+		{
+			if (channel is null)
+				throw new ArgumentNullException(nameof(channel));
+
+			return channel.State != ChannelStates.Stopped;
+		}
+
+		/// <summary>
+		/// Constant value for <see cref="OrderRegisterMessage.TillDate"/> means Today(=Session).
+		/// </summary>
+		public static DateTimeOffset Today = new DateTimeOffset(2100, 1, 1, 0, 0, 0, TimeSpan.Zero);
+
+		/// <summary>
+		/// To check the specified date is today.
+		/// </summary>
+		/// <param name="date">The specified date.</param>
+		/// <returns><see langword="true"/> if the specified date is today, otherwise, <see langword="false"/>.</returns>
+		public static bool IsToday(this DateTimeOffset? date)
+		{
+			return date != null && date.Value.IsToday();
+		}
+
+		/// <summary>
+		/// To check the specified date is today.
+		/// </summary>
+		/// <param name="date">The specified date.</param>
+		/// <returns><see langword="true"/> if the specified date is today, otherwise, <see langword="false"/>.</returns>
+		public static bool IsToday(this DateTimeOffset date)
+		{
+			return date == Today;
+		}
+
+		/// <summary>
+		/// Determines the specified date equals is <see cref="Today"/> and returns <see cref="DateTime.Today"/>.
+		/// </summary>
+		/// <param name="date">The specified date.</param>
+		/// <returns>Result value.</returns>
+		public static DateTimeOffset? EnsureToday(this DateTimeOffset? date)
+			=> date.EnsureToday(DateTime.Today.ApplyUtc());
+
+		/// <summary>
+		/// Determines the specified date equals is <see cref="Today"/> and returns <paramref name="todayValue"/>.
+		/// </summary>
+		/// <param name="date">The specified date.</param>
+		/// <param name="todayValue">Today value.</param>
+		/// <returns>Result value.</returns>
+		public static DateTimeOffset? EnsureToday(this DateTimeOffset? date, DateTimeOffset? todayValue)
+			=> date == null ? null : (date.IsToday() ? todayValue : date);
+
+		/// <summary>
+		/// Get supported y adapter data types.
+		/// </summary>
+		/// <param name="adapter">Adapter.</param>
+		/// <returns>Supported by adapter data types.</returns>
+		public static IEnumerable<DataType> GetSupportedDataTypes(this IMessageAdapter adapter)
+		{
+			if (adapter is null)
+				throw new ArgumentNullException(nameof(adapter));
+
+			var dataTypes = new HashSet<DataType>();
+
+			foreach (var dataType in adapter.SupportedMarketDataTypes)
+			{
+				if (dataType.IsCandles)
+				{
+					if (dataType.Arg is null)
+					{
+						foreach (var arg in adapter.GetCandleArgs(dataType.MessageType))
+						{
+							dataTypes.Add(DataType.Create(dataType.MessageType, arg));
+						}
+					}
+					else
+						dataTypes.Add(dataType);
+				}
+				else
+					dataTypes.Add(dataType);
+			}
+
+			if (adapter.IsTransactional())
+			{
+				dataTypes.Add(DataType.PositionChanges);
+				dataTypes.Add(DataType.Transactions);
+			}
+
+			return dataTypes;
+		}
+
+		private static void CheckIsSnapshot(this QuoteChangeMessage depth)
+		{
+			if (depth is null)
+				throw new ArgumentNullException(nameof(depth));
+
+			if (!(depth.State == null || depth.State == QuoteChangeStates.SnapshotComplete))
+				throw new ArgumentException(nameof(depth));
+		}
+
+		/// <summary>
+		/// To create from regular order book a sparse one.
+		/// </summary>
+		/// <remarks>
+		/// In sparsed book shown quotes with no active orders. The volume of these quotes is 0.
+		/// </remarks>
+		/// <param name="depth">The regular order book.</param>
+		/// <param name="priceRange">Minimum price step.</param>
+		/// <param name="priceStep">Security price step.</param>
+		/// <returns>The sparse order book.</returns>
+		public static QuoteChangeMessage Sparse(this QuoteChangeMessage depth, Unit priceRange, decimal? priceStep)
+		{
+			depth.CheckIsSnapshot();
+
+			if (!depth.IsSorted)
+			{
+				depth.Bids = depth.Bids.OrderByDescending(q => q.Price).ToArray();
+				depth.Asks = depth.Asks.OrderBy(q => q.Price).ToArray();
+			}
+
+			var bids = depth.Bids.Sparse(Sides.Buy, priceRange, priceStep);
+			var asks = depth.Asks.Sparse(Sides.Sell, priceRange, priceStep);
+
+			var bestBid = depth.GetBestBid();
+			var bestAsk = depth.GetBestAsk();
+
+			var spreadQuotes = bestBid is null || bestAsk is null
+				? (ArrayHelper.Empty<QuoteChange>(), ArrayHelper.Empty<QuoteChange>())
+				: bestBid.Value.Sparse(bestAsk.Value, priceRange, priceStep);
+
+			return new QuoteChangeMessage
+			{
+				SecurityId = depth.SecurityId,
+				ServerTime = depth.ServerTime,
+				BuildFrom = DataType.MarketDepth,
+				Bids = spreadQuotes.Item1.Concat(bids),
+				Asks = spreadQuotes.Item2.Concat(asks),
+			};
+		}
+
+		private static void ValidatePriceRange(Unit priceRange)
+		{
+			if (priceRange is null)
+				throw new ArgumentNullException(nameof(priceRange));
+
+			if (priceRange.Value <= 0)
+				throw new ArgumentOutOfRangeException(nameof(priceRange), priceRange, LocalizedStrings.Str1213);
+		}
+
+		/// <summary>
+		/// To create form pair of quotes a sparse collection of quotes, which will be included into the range between the pair.
+		/// </summary>
+		/// <remarks>
+		/// In sparsed collection shown quotes with no active orders. The volume of these quotes is 0.
+		/// </remarks>
+		/// <param name="bid">Bid.</param>
+		/// <param name="ask">Ask.</param>
+		/// <param name="priceRange">Minimum price step.</param>
+		/// <param name="priceStep">Security price step.</param>
+		/// <returns>The sparse collection of quotes.</returns>
+		public static (QuoteChange[] bids, QuoteChange[] asks) Sparse(this QuoteChange bid, QuoteChange ask, Unit priceRange, decimal? priceStep)
+		{
+			ValidatePriceRange(priceRange);
+
+			var bidPrice = bid.Price;
+			var askPrice = ask.Price;
+
+			if (bidPrice == default || askPrice == default || bidPrice == askPrice)
+				return (ArrayHelper.Empty<QuoteChange>(), ArrayHelper.Empty<QuoteChange>());
+
+			const int maxLimit = 1000;
+
+			var bids = new List<QuoteChange>();
+			var asks = new List<QuoteChange>();
+
+			while (true)
+			{
+				bidPrice = ((decimal)(bidPrice + priceRange)).ShrinkPrice(priceStep, null, ShrinkRules.More);
+				askPrice = ((decimal)(askPrice - priceRange)).ShrinkPrice(priceStep, null, ShrinkRules.Less);
+
+				if (bidPrice > askPrice)
+					break;
+
+				bids.Add(new QuoteChange { Price = bidPrice });
+
+				if (bids.Count > maxLimit)
+					break;
+
+				if (bidPrice == askPrice)
+					break;
+
+				asks.Add(new QuoteChange { Price = askPrice });
+
+				if (asks.Count > maxLimit)
+					break;
+			}
+
+			bids.Reverse();
+			asks.Reverse();
+
+			return (bids.ToArray(), asks.ToArray());
+		}
+
+		/// <summary>
+		/// To create the sparse collection of quotes from regular quotes.
+		/// </summary>
+		/// <remarks>
+		/// In sparsed collection shown quotes with no active orders. The volume of these quotes is 0.
+		/// </remarks>
+		/// <param name="quotes">Regular quotes. The collection shall contain quotes of the same direction (only bids or only offers).</param>
+		/// <param name="side">Side.</param>
+		/// <param name="priceRange">Minimum price step.</param>
+		/// <param name="priceStep">Security price step.</param>
+		/// <returns>The sparse collection of quotes.</returns>
+		public static QuoteChange[] Sparse(this QuoteChange[] quotes, Sides side, Unit priceRange, decimal? priceStep)
+		{
+			if (quotes is null)
+				throw new ArgumentNullException(nameof(quotes));
+
+			ValidatePriceRange(priceRange);
+
+			if (quotes.Length < 2)
+				return ArrayHelper.Empty<QuoteChange>();
+
+			const int maxLimit = 10000;
+
+			var retVal = new List<QuoteChange>();
+
+			for (var i = 0; i < (quotes.Length - 1); i++)
+			{
+				var from = quotes[i];
+				var toPrice = quotes[i + 1].Price;
+
+				if (side == Sides.Buy)
+				{
+					for (var price = (from.Price - priceRange); price > toPrice; price -= priceRange)
+					{
+						var p = ((decimal)price).ShrinkPrice(priceStep, null, ShrinkRules.Less);
+
+						if (p <= toPrice)
+							break;
+
+						retVal.Add(new QuoteChange { Price = p });
+
+						if (retVal.Count > maxLimit)
+							break;
+					}
+				}
+				else
+				{
+					for (var price = (from.Price + priceRange); price < toPrice; price += priceRange)
+					{
+						var p = ((decimal)price).ShrinkPrice(priceStep, null, ShrinkRules.More);
+
+						if (p >= toPrice)
+							break;
+
+						retVal.Add(new QuoteChange { Price = p });
+
+						if (retVal.Count > maxLimit)
+							break;
+					}
+				}
+
+				if (retVal.Count > maxLimit)
+					break;
+			}
+
+			return retVal.ToArray();
+		}
+
+		/// <summary>
+		/// To group the order book by the price range.
+		/// </summary>
+		/// <param name="depth">The order book to be grouped.</param>
+		/// <param name="priceRange">The price range, for which grouping shall be performed.</param>
+		/// <returns>The grouped order book.</returns>
+		public static QuoteChangeMessage Group(this QuoteChangeMessage depth, Unit priceRange)
+		{
+			depth.CheckIsSnapshot();
+
+			return new QuoteChangeMessage
+			{
+				SecurityId = depth.SecurityId,
+				ServerTime = depth.ServerTime,
+				Bids = depth.Bids.Group(Sides.Buy, priceRange),
+				Asks = depth.Asks.Group(Sides.Sell, priceRange),
+				BuildFrom = DataType.MarketDepth,
+			};
+		}
+
+		/// <summary>
+		/// To de-group the order book, grouped using the method <see cref="Group(QuoteChangeMessage,Unit)"/>.
+		/// </summary>
+		/// <param name="depth">The grouped order book.</param>
+		/// <returns>The de-grouped order book.</returns>
+		public static QuoteChangeMessage UnGroup(this QuoteChangeMessage depth)
+		{
+			static QuoteChange[] GetInner(QuoteChange quote)
+			{
+				var inner = quote.InnerQuotes;
+
+				if (inner == null)
+					throw new ArgumentException(quote.ToString(), nameof(quote));
+
+				return inner;
+			}
+
+			depth.CheckIsSnapshot();
+
+			return new QuoteChangeMessage
+			{
+				SecurityId = depth.SecurityId,
+				ServerTime = depth.ServerTime,
+				Bids = depth.Bids.SelectMany(GetInner).OrderByDescending(q => q.Price).ToArray(),
+				Asks = depth.Asks.SelectMany(GetInner).OrderBy(q => q.Price).ToArray(),
+				BuildFrom = DataType.MarketDepth,
+			};
+		}
+
+		/// <summary>
+		/// To group quotes by the price range.
+		/// </summary>
+		/// <param name="quotes">Quotes to be grouped.</param>
+		/// <param name="side">Side.</param>
+		/// <param name="priceRange">The price range, for which grouping shall be performed.</param>
+		/// <returns>Grouped quotes.</returns>
+		public static QuoteChange[] Group(this QuoteChange[] quotes, Sides side, Unit priceRange)
+		{
+			if (quotes is null)
+				throw new ArgumentNullException(nameof(quotes));
+
+			ValidatePriceRange(priceRange);
+
+			if (quotes.Length < 2)
+				return quotes.ToArray();
+
+			if (side == Sides.Buy)
+				priceRange = -priceRange;
+
+			const int maxLimit = 10000;
+
+			var retVal = new List<QuoteChange>();
+
+			var groupedQuote = new QuoteChange { Price = quotes[0].Price };
+			var innerQuotes = new List<QuoteChange> { quotes[0] };
+
+			var nextPrice = (decimal)(groupedQuote.Price + priceRange);
+
+			for (int i = 1; i < quotes.Length; i++)
+			{
+				var currQuote = quotes[i];
+
+				if (side == Sides.Buy)
+				{
+					if (currQuote.Price >= nextPrice)
+					{
+						innerQuotes.Add(currQuote);
+
+						if (innerQuotes.Count > maxLimit)
+							break;
+
+						continue;
+					}
+				}
+				else
+				{
+					if (currQuote.Price <= nextPrice)
+					{
+						innerQuotes.Add(currQuote);
+
+						if (innerQuotes.Count > maxLimit)
+							break;
+
+						continue;
+					}
+				}
+
+				groupedQuote.InnerQuotes = innerQuotes.CopyAndClear();
+				retVal.Add(groupedQuote);
+
+				if (innerQuotes.Count > maxLimit)
+					break;
+
+				groupedQuote = new QuoteChange { Price = currQuote.Price };
+				innerQuotes.Add(currQuote);
+
+				nextPrice = (decimal)(groupedQuote.Price + priceRange);
+			}
+
+			if (innerQuotes.Count > 0)
+			{
+				groupedQuote.InnerQuotes = innerQuotes.CopyAndClear();
+				retVal.Add(groupedQuote);
+			}
+
+			return retVal.ToArray();
+		}
+
+		/// <summary>
+		/// To calculate the change between order books.
+		/// </summary>
+		/// <param name="from">First order book.</param>
+		/// <param name="to">Second order book.</param>
+		/// <returns>The order book, storing only increments.</returns>
+		public static QuoteChangeMessage GetDelta(this QuoteChangeMessage from, QuoteChangeMessage to)
+		{
+			if (from == null)
+				throw new ArgumentNullException(nameof(from));
+
+			if (to == null)
+				throw new ArgumentNullException(nameof(to));
+
+			return new QuoteChangeMessage
+			{
+				LocalTime = to.LocalTime,
+				SecurityId = to.SecurityId,
+				Bids = GetDelta(from.Bids, to.Bids, new BackwardComparer<decimal>()),
+				Asks = GetDelta(from.Asks, to.Asks, null),
+				ServerTime = to.ServerTime,
+				State = QuoteChangeStates.Increment,
+			};
+		}
+
+		/// <summary>
+		/// To calculate the change between quotes.
+		/// </summary>
+		/// <param name="from">First quotes.</param>
+		/// <param name="to">Second quotes.</param>
+		/// <param name="comparer">The direction, showing the type of quotes.</param>
+		/// <returns>Changes.</returns>
+		private static QuoteChange[] GetDelta(this IEnumerable<QuoteChange> from, IEnumerable<QuoteChange> to, IComparer<decimal> comparer)
+		{
+			if (from == null)
+				throw new ArgumentNullException(nameof(from));
+
+			if (to == null)
+				throw new ArgumentNullException(nameof(to));
+
+			var mapFrom = new SortedList<decimal, QuoteChange>(comparer);
+			var mapTo = new SortedList<decimal, QuoteChange>(comparer);
+
+			foreach (var change in from)
+			{
+				if (!mapFrom.TryAdd2(change.Price, change))
+					throw new ArgumentException(LocalizedStrings.Str415Params.Put(change.Price), nameof(from));
+			}
+
+			foreach (var change in to)
+			{
+				if (!mapTo.TryAdd2(change.Price, change))
+					throw new ArgumentException(LocalizedStrings.Str415Params.Put(change.Price), nameof(to));
+			}
+
+			foreach (var pair in mapFrom)
+			{
+				var price = pair.Key;
+				var quoteFrom = pair.Value;
+
+				if (mapTo.TryGetValue(price, out var quoteTo))
+				{
+					if (quoteTo.Volume == quoteFrom.Volume &&
+						quoteTo.OrdersCount == quoteFrom.OrdersCount &&
+						quoteTo.Action == quoteFrom.Action &&
+						quoteTo.Condition == quoteFrom.Condition &&
+						quoteTo.StartPosition == quoteFrom.StartPosition &&
+						quoteTo.EndPosition == quoteFrom.EndPosition)
+					{
+						// nothing was changes, remove this
+						mapTo.Remove(price);
+					}
+				}
+				else
+				{
+					// zero volume means remove price level
+					mapTo[price] = new QuoteChange { Price = price };
+				}
+			}
+
+			return mapTo.Values.ToArray();
+		}
+
+		/// <summary>
+		/// To add change to the first order book.
+		/// </summary>
+		/// <param name="from">First order book.</param>
+		/// <param name="delta">Change.</param>
+		/// <returns>The changed order book.</returns>
+		public static QuoteChangeMessage AddDelta(this QuoteChangeMessage from, QuoteChangeMessage delta)
+		{
+			if (from == null)
+				throw new ArgumentNullException(nameof(from));
+
+			if (delta == null)
+				throw new ArgumentNullException(nameof(delta));
+
+			if (!from.IsSorted)
+				throw new ArgumentException(nameof(from));
+
+			if (!delta.IsSorted)
+				throw new ArgumentException(nameof(delta));
+
+			return new QuoteChangeMessage
+			{
+				LocalTime = delta.LocalTime,
+				SecurityId = from.SecurityId,
+				Bids = AddDelta(from.Bids, delta.Bids, true),
+				Asks = AddDelta(from.Asks, delta.Asks, false),
+				ServerTime = delta.ServerTime,
+			};
+		}
+
+		/// <summary>
+		/// To add change to quote.
+		/// </summary>
+		/// <param name="fromQuotes">Quotes.</param>
+		/// <param name="deltaQuotes">Changes.</param>
+		/// <param name="isBids">The indication of quotes direction.</param>
+		/// <returns>Changed quotes.</returns>
+		public static QuoteChange[] AddDelta(this IEnumerable<QuoteChange> fromQuotes, IEnumerable<QuoteChange> deltaQuotes, bool isBids)
+		{
+			var result = new List<QuoteChange>();
+
+			using (var fromEnu = fromQuotes.GetEnumerator())
+			{
+				var hasFrom = fromEnu.MoveNext();
+
+				foreach (var quoteChange in deltaQuotes)
+				{
+					var canAdd = true;
+
+					while (hasFrom)
+					{
+						var current = fromEnu.Current;
+
+						if (isBids)
+						{
+							if (current.Price > quoteChange.Price)
+								result.Add(current);
+							else if (current.Price == quoteChange.Price)
+							{
+								if (quoteChange.Volume != 0)
+									result.Add(quoteChange);
+
+								hasFrom = fromEnu.MoveNext();
+								canAdd = false;
+
+								break;
+							}
+							else
+								break;
+						}
+						else
+						{
+							if (current.Price < quoteChange.Price)
+								result.Add(current);
+							else if (current.Price == quoteChange.Price)
+							{
+								if (quoteChange.Volume != 0)
+									result.Add(quoteChange);
+
+								hasFrom = fromEnu.MoveNext();
+								canAdd = false;
+
+								break;
+							}
+							else
+								break;
+						}
+
+						hasFrom = fromEnu.MoveNext();
+					}
+
+					if (canAdd && quoteChange.Volume != 0)
+						result.Add(quoteChange);
+				}
+
+				while (hasFrom)
+				{
+					result.Add(fromEnu.Current);
+					hasFrom = fromEnu.MoveNext();
+				}
+			}
+
+			return result.ToArray();
+		}
+
+
+		/// <summary>
+		/// To merge the initial order book and its sparse representation.
+		/// </summary>
+		/// <param name="original">The initial order book.</param>
+		/// <param name="rare">The sparse order book.</param>
+		/// <returns>The merged order book.</returns>
+		public static QuoteChangeMessage Join(this QuoteChangeMessage original, QuoteChangeMessage rare)
+		{
+			if (original is null)
+				throw new ArgumentNullException(nameof(original));
+
+			if (rare is null)
+				throw new ArgumentNullException(nameof(rare));
+
+			return new QuoteChangeMessage
+			{
+				ServerTime = original.ServerTime,
+				SecurityId = original.SecurityId,
+				BuildFrom = DataType.MarketDepth,
+
+				Bids = original.Bids.Concat(rare.Bids).OrderByDescending(q => q.Price).ToArray(),
+				Asks = original.Asks.Concat(rare.Asks).OrderBy(q => q.Price).ToArray(),
+			};
+		}
+
+		/// <summary>
+		/// To cut the price, to make it multiple of minimal step, also to limit number of signs after the comma.
+		/// </summary>
+		/// <param name="price">The price to be made multiple.</param>
+		/// <param name="priceStep">Price step.</param>
+		/// <param name="decimals">Number of digits in price after coma.</param>
+		/// <param name="rule">The price rounding rule.</param>
+		/// <returns>The multiple price.</returns>
+		public static decimal ShrinkPrice(this decimal price, decimal? priceStep, int? decimals, ShrinkRules rule = ShrinkRules.Auto)
+		{
+			var rounding = rule == ShrinkRules.Auto
+				? (MidpointRounding?)null
+				: (rule == ShrinkRules.Less ? MidpointRounding.AwayFromZero : MidpointRounding.ToEven);
+
+			var result = price.Round(priceStep ?? 0.01m, decimals, rounding);
+
+			return result.RemoveTrailingZeros();
+		}
+
+		/// <summary>
+		/// Sort order book.
+		/// </summary>
+		/// <param name="quoteMsg">Order book.</param>
+		/// <returns>Order book.</returns>
+		public static QuoteChangeMessage TrySort(this QuoteChangeMessage quoteMsg)
+		{
+			if (quoteMsg is null)
+				throw new ArgumentNullException(nameof(quoteMsg));
+
+			if (!quoteMsg.IsSorted)
+			{
+				quoteMsg.Bids = quoteMsg.Bids.OrderByDescending(q => q.Price).ToArray();
+				quoteMsg.Asks = quoteMsg.Asks.OrderBy(q => q.Price).ToArray();
+
+				quoteMsg.IsSorted = true;
+			}
+
+			return quoteMsg;
+		}
+
+		/// <summary>
+		/// Convert <see cref="ExecutionMessage"/> to <see cref="OrderRegisterMessage"/>.
+		/// </summary>
+		/// <param name="execMsg">The message contains information about the execution.</param>
+		/// <returns>The message containing the information for the order registration.</returns>
+		public static OrderRegisterMessage ToReg(this ExecutionMessage execMsg)
+		{
+			if (execMsg is null)
+				throw new ArgumentNullException(nameof(execMsg));
+
+			return new OrderRegisterMessage
+			{
+				SecurityId = execMsg.SecurityId,
+				TransactionId = execMsg.TransactionId,
+				Price = execMsg.OrderPrice,
+				Volume = execMsg.Balance ?? execMsg.OrderVolume ?? 0L,
+				Currency = execMsg.Currency,
+				PortfolioName = execMsg.PortfolioName,
+				ClientCode = execMsg.ClientCode,
+				BrokerCode = execMsg.BrokerCode,
+				Comment = execMsg.Comment,
+				Side = execMsg.Side,
+				TimeInForce = execMsg.TimeInForce,
+				TillDate = execMsg.ExpiryDate,
+				VisibleVolume = execMsg.VisibleVolume,
+				LocalTime = execMsg.LocalTime,
+				IsMarketMaker = execMsg.IsMarketMaker,
+				IsMargin = execMsg.IsMargin,
+				Slippage = execMsg.Slippage,
+				IsManual = execMsg.IsManual,
+				OrderType = execMsg.OrderType,
+				UserOrderId = execMsg.UserOrderId,
+				StrategyId = execMsg.StrategyId,
+				Condition = execMsg.Condition?.Clone(),
+				MinOrderVolume = execMsg.MinVolume,
+				PositionEffect = execMsg.PositionEffect,
+				PostOnly = execMsg.PostOnly,
+				Leverage = execMsg.Leverage,
+			};
+		}
+
+		/// <summary>
+		/// Convert <see cref="OrderRegisterMessage"/> to <see cref="ExecutionMessage"/>.
+		/// </summary>
+		/// <param name="regMsg">The message containing the information for the order registration.</param>
+		/// <returns>The message contains information about the execution.</returns>
+		public static ExecutionMessage ToExec(this OrderRegisterMessage regMsg)
+		{
+			if (regMsg is null)
+				throw new ArgumentNullException(nameof(regMsg));
+
+			return new ExecutionMessage
+			{
+				ServerTime = DateTimeOffset.Now,
+				ExecutionType = ExecutionTypes.Transaction,
+				SecurityId = regMsg.SecurityId,
+				TransactionId = regMsg.TransactionId,
+				OriginalTransactionId = regMsg.TransactionId,
+				HasOrderInfo = true,
+				OrderPrice = regMsg.Price,
+				OrderVolume = regMsg.Volume,
+				Currency = regMsg.Currency,
+				PortfolioName = regMsg.PortfolioName,
+				ClientCode = regMsg.ClientCode,
+				BrokerCode = regMsg.BrokerCode,
+				Comment = regMsg.Comment,
+				Side = regMsg.Side,
+				TimeInForce = regMsg.TimeInForce,
+				ExpiryDate = regMsg.TillDate,
+				Balance = regMsg.Volume,
+				VisibleVolume = regMsg.VisibleVolume,
+				LocalTime = regMsg.LocalTime,
+				IsMarketMaker = regMsg.IsMarketMaker,
+				IsMargin = regMsg.IsMargin,
+				Slippage = regMsg.Slippage,
+				IsManual = regMsg.IsManual,
+				OrderType = regMsg.OrderType,
+				UserOrderId = regMsg.UserOrderId,
+				StrategyId = regMsg.StrategyId,
+				OrderState = OrderStates.Pending,
+				Condition = regMsg.Condition?.Clone(),
+				MinVolume = regMsg.MinOrderVolume,
+				PositionEffect = regMsg.PositionEffect,
+				PostOnly = regMsg.PostOnly,
+				Leverage = regMsg.Leverage,
+			};
+		}
+
+		/// <summary>
+		/// Determines the specified message contains historical request only.
+		/// </summary>
+		/// <param name="message">Subscription.</param>
+		/// <returns>Check result.</returns>
+		public static bool IsHistoryOnly(this ISubscriptionMessage message)
+		{
+			if (message is null)
+				throw new ArgumentNullException(nameof(message));
+
+			if (!message.IsSubscribe)
+				throw new ArgumentException(nameof(message));
+
+			return message.To != null || message.Count != null;
+		}
+
+		/// <summary>
+		/// Filter boards by code criteria.
+		/// </summary>
+		/// <param name="boards">All boards.</param>
+		/// <param name="criteria">Criteria.</param>
+		/// <returns>Found boards.</returns>
+		public static IEnumerable<BoardMessage> Filter(this IEnumerable<BoardMessage> boards, BoardLookupMessage criteria)
+			=> boards.Where(b => b.IsMatch(criteria));
 	}
 }

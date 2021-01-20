@@ -3,6 +3,8 @@ namespace StockSharp.Configuration
 	using System;
 	using System.Collections.Generic;
 
+	using Ecng.Common;
+
 	using StockSharp.AlfaDirect;
 	using StockSharp.AlorHistory;
 	using StockSharp.AlphaVantage;
@@ -75,7 +77,7 @@ namespace StockSharp.Configuration
 	using StockSharp.Poloniex;
 	using StockSharp.PrizmBit;
 	using StockSharp.Quandl;
-	using StockSharp.QuantHouse;
+	//using StockSharp.QuantHouse;
 	//using StockSharp.Quik;
 	using StockSharp.Quik.Lua;
 	using StockSharp.Quoinex;
@@ -168,7 +170,7 @@ namespace StockSharp.Configuration
 			() => typeof(TwimeMessageAdapter),
 			() => typeof(SpbExMessageAdapter),
 			() => typeof(FxcmMessageAdapter),
-			() => typeof(QuantFeedMessageAdapter),
+			//() => typeof(QuantFeedMessageAdapter),
 			() => typeof(BitfinexMessageAdapter),
 			() => typeof(BithumbMessageAdapter),
 			() => typeof(BittrexMessageAdapter),
@@ -233,5 +235,8 @@ namespace StockSharp.Configuration
 			() => typeof(PrizmBitMessageAdapter),
 			() => typeof(DigitexFuturesMessageAdapter),
 		});
+
+		/// <inheritdoc />
+		public override IMessageAdapter CreateTransportAdapter(IdGenerator transactionIdGenerator) => new FixMessageAdapter(transactionIdGenerator);
 	}
 }

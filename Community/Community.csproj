@@ -6,15 +6,6 @@
     <AssemblyName>StockSharp.Community</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Ecng.ComponentModel" Version="$(EcngVer)" />
-    <PackageReference Include="Ecng.Net" Version="$(EcngVer)" />
-    <PackageReference Include="Ecng.IO" Version="$(EcngVer)" />
-    <PackageReference Include="Microsoft.Windows.Compatibility" Version="3.1.0" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\Messages\Messages.csproj" />
-  </ItemGroup>
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net48' ">
-    <Reference Include="System.ComponentModel.DataAnnotations" />
   </ItemGroup>
 </Project>

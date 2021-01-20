@@ -9,7 +9,6 @@ namespace StockSharp.Algo
 	using StockSharp.Algo.Risk;
 	using StockSharp.Algo.Storages;
 	using StockSharp.BusinessEntities;
-	using StockSharp.Community;
 	using StockSharp.Logging;
 	using StockSharp.Messages;
 
@@ -87,6 +86,16 @@ namespace StockSharp.Algo
 		public static IMarketDataProvider TryMarketDataProvider => ConfigManager.TryGetService<IMarketDataProvider>();
 
 		/// <summary>
+		/// Subscription provider.
+		/// </summary>
+		public static ISubscriptionProvider SubscriptionProvider => ConfigManager.GetService<ISubscriptionProvider>();
+
+		/// <summary>
+		/// Subscription provider.
+		/// </summary>
+		public static ISubscriptionProvider TrySubscriptionProvider => ConfigManager.TryGetService<ISubscriptionProvider>();
+
+		/// <summary>
 		/// The storage of market data.
 		/// </summary>
 		public static IStorageRegistry StorageRegistry => ConfigManager.GetService<IStorageRegistry>();
@@ -133,41 +142,6 @@ namespace StockSharp.Algo
 		/// Extended info <see cref="Message.ExtensionInfo"/> storage.
 		/// </summary>
 		public static IExtendedInfoStorage TryExtendedInfoStorage => ConfigManager.TryGetService<IExtendedInfoStorage>();
-
-		/// <summary>
-		/// The client for access to the StockSharp notification service.
-		/// </summary>
-		public static INotificationClient NotificationClient => ConfigManager.GetService<INotificationClient>();
-
-		/// <summary>
-		/// The client for access to the StockSharp notification service.
-		/// </summary>
-		public static INotificationClient TryNotificationClient => ConfigManager.TryGetService<INotificationClient>();
-
-		/// <summary>
-		/// The client for access to the service of work with files and documents.
-		/// </summary>
-		public static IFileClient FileClient => ConfigManager.GetService<IFileClient>();
-
-		/// <summary>
-		/// The client for access to the registration service.
-		/// </summary>
-		public static IProfileClient ProfileClient => ConfigManager.GetService<IProfileClient>();
-
-		/// <summary>
-		/// The client for access to <see cref="IStrategyService"/>.
-		/// </summary>
-		public static IStrategyClient StrategyClient => ConfigManager.GetService<IStrategyClient>();
-
-		/// <summary>
-		/// The client for access to the StockSharp authentication service.
-		/// </summary>
-		public static IAuthenticationClient AuthenticationClient => ConfigManager.GetService<IAuthenticationClient>();
-
-		/// <summary>
-		/// The client for access to the StockSharp authentication service.
-		/// </summary>
-		public static IAuthenticationClient TryAuthenticationClient => ConfigManager.TryGetService<IAuthenticationClient>();
 
 		/// <summary>
 		/// The message adapter's provider.

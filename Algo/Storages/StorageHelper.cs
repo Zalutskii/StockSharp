@@ -281,44 +281,69 @@ namespace StockSharp.Algo.Storages
 			var min = range.Min.UtcDateTime;
 			var max = range.Max.UtcDateTime.EndOfDay();
 
-			for (var date = min; date <= max; date = date.AddDays(1))
+			for (var time = min; time <= max; time = time.AddDays(1))
 			{
-				if (date == min)
-				{
-					var metaInfo = storage.GetMetaInfo(date.Date);
+				var date = time.Date;
 
-					if (metaInfo == null)
+				if (from == null && to == null)
+				{
+					storage.Delete(date);
+					continue;
+				}
+				else if (from == null && date < to.Value.UtcDateTime.Date)
+				{
+					storage.Delete(date);
+					continue;
+				}
+				else if (to == null && date > from.Value.UtcDateTime.Date)
+				{
+					storage.Delete(date);
+					continue;
+				}
+
+				if (time == min)
+				{
+					var metaInfo = storage.GetMetaInfo(date);
+
+					if (metaInfo is null)
 						continue;
 
-					if (metaInfo.FirstTime >= date && max.Date != min.Date)
+					if (metaInfo.FirstTime >= time && max.Date != min.Date)
 					{
-						storage.Delete(date.Date);
+						storage.Delete(date);
 					}
 					else
 					{
-						var data = storage.Load(date.Date).ToList();
+						var data = storage.Load(date).ToList();
 						data.RemoveWhere(d =>
 						{
-							var time = info.GetTime(d);
-							return time.UtcDateTime < min || time > range.Max;
+							var t = info.GetTime(d);
+							return t.UtcDateTime < min || t > range.Max;
 						});
 						storage.Delete(data);
 					}
 				}
-				else if (date.Date < max.Date)
-					storage.Delete(date.Date);
+				else if (date < max.Date)
+					storage.Delete(date);
 				else
 				{
-					var data = storage.Load(date.Date).ToList();
+					var data = storage.Load(date).ToList();
 					data.RemoveWhere(d => info.GetTime(d) > range.Max);
 					storage.Delete(data);
 				}
 			}
 		}
 
-		internal static Range<DateTimeOffset> GetRange(this IMarketDataStorage storage, DateTimeOffset? from, DateTimeOffset? to)
+		/// <summary>
+		/// Get available date range for the specified storage.
+		/// </summary>
+		/// <param name="storage">Storage.</param>
+		/// <param name="from">The initial date from which you need to get data.</param>
+		/// <param name="to">The final date by which you need to get data.</param>
+		/// <returns>Date range</returns>
+		public static Range<DateTimeOffset> GetRange(this IMarketDataStorage storage, DateTimeOffset? from, DateTimeOffset? to)
 		{
-			if (storage == null)
+			if (storage is null)
 				throw new ArgumentNullException(nameof(storage));
 
 			if (from > to)
@@ -332,10 +357,32 @@ namespace StockSharp.Algo.Storages
 			if (dates.IsEmpty())
 				return null;
 
-			var first = dates.First().ApplyUtc();
-			var last = dates.Last().EndOfDay().ApplyUtc();
+			var first = dates.First().UtcKind();
+			var last = dates.Last().UtcKind();
 
-			if (from > last)
+			if (from > last.EndOfDay() || to < first)
+				return null;
+
+			var firstInfo = storage.GetMetaInfo(first);
+			var lastInfo = first == last ? firstInfo : storage.GetMetaInfo(last);
+
+			if (firstInfo is null)
+			{
+				GlobalLogReceiver.Instance.AddWarningLog(LocalizedStrings.Str1702Params.Put(first));
+				return null;
+			}
+
+			if (lastInfo is null)
+			{
+				GlobalLogReceiver.Instance.AddWarningLog(LocalizedStrings.Str1702Params.Put(last));
+				return null;
+			}
+
+			first = firstInfo.FirstTime;
+			last = lastInfo.LastTime;
+
+			// chech bounds again after time part loaded
+			if (from > last || to < first)
 				return null;
 
 			var timePrecision = storage.Serializer.TimePrecision;
@@ -380,23 +427,6 @@ namespace StockSharp.Algo.Storages
 				dates = dates.Where(d => d <= to.Value);
 
 			return dates;
-		}
-
-		/// <summary>
-		/// Read instrument by identifier.
-		/// </summary>
-		/// <param name="securities">Instrument storage collection.</param>
-		/// <param name="securityId">Identifier.</param>
-		/// <returns>Instrument.</returns>
-		public static Security ReadBySecurityId(this IStorageEntityList<Security> securities, SecurityId securityId)
-		{
-			if (securities == null)
-				throw new ArgumentNullException(nameof(securities));
-
-			if (securityId.IsDefault())
-				throw new ArgumentNullException(nameof(securityId));
-
-			return securities.ReadById(securityId.ToStringId());
 		}
 
 		internal static DateTimeOffset StorageTruncate(this DateTimeOffset time, TimeSpan precision)
@@ -464,7 +494,7 @@ namespace StockSharp.Algo.Storages
 								break;
 
 							drive
-								.GetStorageDrive(secId, dataType.MessageType, dataType.Arg, format)
+								.GetStorageDrive(secId, dataType, format)
 								.ClearDatesCache();
 						}
 					}
@@ -489,13 +519,23 @@ namespace StockSharp.Algo.Storages
 		/// <param name="securityId">Identifier.</param>
 		public static void DeleteById(this ISecurityStorage securityStorage, string securityId)
 		{
+			securityStorage.DeleteById(securityId.ToSecurityId());
+		}
+
+		/// <summary>
+		/// Delete instrument by identifier.
+		/// </summary>
+		/// <param name="securityStorage">Securities meta info storage.</param>
+		/// <param name="securityId">Identifier.</param>
+		public static void DeleteById(this ISecurityStorage securityStorage, SecurityId securityId)
+		{
 			if (securityStorage == null)
 				throw new ArgumentNullException(nameof(securityStorage));
 
-			if (securityId.IsEmpty())
+			if (securityId == default)
 				throw new ArgumentNullException(nameof(securityId));
 
-			securityStorage.DeleteBy(new Security { Id = securityId });
+			securityStorage.DeleteBy(new SecurityLookupMessage { SecurityId = securityId });
 		}
 
 		private class CandleMessageBuildableStorage : IMarketDataStorage<CandleMessage>, IMarketDataStorageInfo<CandleMessage>
@@ -522,6 +562,8 @@ namespace StockSharp.Algo.Storages
 					DataType2 = DataType.TimeFrame(timeFrame),
 					IsSubscribe = true,
 				}, provider.Get(typeof(TimeFrameCandleMessage))));
+
+				_dataType = DataType.Create(typeof(TimeFrameCandleMessage), _original.DataType.Arg);
 			}
 
 			private IEnumerable<TimeSpan> GetSmallerTimeFrames()
@@ -535,16 +577,14 @@ namespace StockSharp.Algo.Storages
 			}
 
 			private IEnumerable<IMarketDataStorage<CandleMessage>> GetStorages()
-			{
-				return new[] { _original }.Concat(GetSmallerTimeFrames().Select(_getStorage));
-			}
+				=> new[] { _original }.Concat(GetSmallerTimeFrames().Select(_getStorage));
 
 			IEnumerable<DateTime> IMarketDataStorage.Dates => GetStorages().SelectMany(s => s.Dates).OrderBy().Distinct();
 
-			Type IMarketDataStorage.DataType => typeof(TimeFrameCandleMessage);
-			SecurityId IMarketDataStorage.SecurityId => _original.SecurityId;
+			private readonly DataType _dataType;
+			DataType IMarketDataStorage.DataType => _dataType;
 
-			object IMarketDataStorage.Arg => _original.Arg;
+			SecurityId IMarketDataStorage.SecurityId => _original.SecurityId;
 
 			IMarketDataStorageDrive IMarketDataStorage.Drive => _original.Drive;
 
@@ -554,19 +594,30 @@ namespace StockSharp.Algo.Storages
 				set => _original.AppendOnlyNew = value;
 			}
 
-			int IMarketDataStorage.Save(IEnumerable<Message> data) => ((IMarketDataStorage<CandleMessage>)this).Save(data);
+			int IMarketDataStorage.Save(IEnumerable<Message> data) => Save(data.Cast<CandleMessage>());
 
-			void IMarketDataStorage.Delete(IEnumerable<Message> data) => ((IMarketDataStorage<CandleMessage>)this).Delete(data);
+			void IMarketDataStorage.Delete(IEnumerable<Message> data) => Delete(data.Cast<CandleMessage>());
 
-			void IMarketDataStorage.Delete(DateTime date) => ((IMarketDataStorage<CandleMessage>)this).Delete(date);
+			void IMarketDataStorage.Delete(DateTime date) => _original.Delete(date);
 
-			IEnumerable<Message> IMarketDataStorage.Load(DateTime date) => ((IMarketDataStorage<CandleMessage>)this).Load(date);
+			IEnumerable<Message> IMarketDataStorage.Load(DateTime date) => Load(date);
 
-			IMarketDataMetaInfo IMarketDataStorage.GetMetaInfo(DateTime date) =>  ((IMarketDataStorage<CandleMessage>)this).GetMetaInfo(date);
+			IMarketDataMetaInfo IMarketDataStorage.GetMetaInfo(DateTime date)
+			{
+				foreach (var storage in GetStorages())
+				{
+					var info = storage.GetMetaInfo(date);
+
+					if (info != null)
+						return info;
+				}
+
+				return null;
+			}
 
 			IMarketDataSerializer IMarketDataStorage.Serializer => ((IMarketDataStorage<CandleMessage>)this).Serializer;
 
-			IEnumerable<CandleMessage> IMarketDataStorage<CandleMessage>.Load(DateTime date)
+			public IEnumerable<CandleMessage> Load(DateTime date)
 			{
 				if (date <= _prevDate)
 					_compressors.Values.ForEach(c => c.Reset());
@@ -581,7 +632,7 @@ namespace StockSharp.Algo.Storages
 						return data;
 					else
 					{
-						var compressor = _compressors.TryGetValue((TimeSpan)s.Arg);
+						var compressor = _compressors.TryGetValue((TimeSpan)s.DataType.Arg);
 
 						if (compressor == null)
 							return Enumerable.Empty<CandleMessage>();
@@ -630,9 +681,9 @@ namespace StockSharp.Algo.Storages
 
 			IMarketDataSerializer<CandleMessage> IMarketDataStorage<CandleMessage>.Serializer => _original.Serializer;
 
-			int IMarketDataStorage<CandleMessage>.Save(IEnumerable<CandleMessage> data) => _original.Save(data);
+			public int Save(IEnumerable<CandleMessage> data) => _original.Save(data);
 
-			void IMarketDataStorage<CandleMessage>.Delete(IEnumerable<CandleMessage> data) => _original.Delete(data);
+			public void Delete(IEnumerable<CandleMessage> data) => _original.Delete(data);
 
 			DateTimeOffset IMarketDataStorageInfo<CandleMessage>.GetTime(CandleMessage data) => ((IMarketDataStorageInfo<CandleMessage>)_original).GetTime(data);
 
@@ -680,7 +731,7 @@ namespace StockSharp.Algo.Storages
 					args.Add(arg);
 				else
 				{
-					var dates = drive.GetStorageDrive(securityId, candleType, arg, format).Dates;
+					var dates = drive.GetStorageDrive(securityId, DataType.Create(candleType, arg), format).Dates;
 					
 					if (from != null)
 						dates = dates.Where(d => d >= from.Value);
@@ -712,10 +763,7 @@ namespace StockSharp.Algo.Storages
 				_toMessage = toMessage ?? throw new ArgumentNullException(nameof(toMessage));
 			}
 
-			IMarketDataMetaInfo IMarketDataStorage.GetMetaInfo(DateTime date)
-			{
-				return _messageStorage.GetMetaInfo(date);
-			}
+			IMarketDataMetaInfo IMarketDataStorage.GetMetaInfo(DateTime date) => _messageStorage.GetMetaInfo(date);
 
 			IMarketDataSerializer IMarketDataStorage.Serializer => _messageStorage.Serializer;
 
@@ -723,11 +771,9 @@ namespace StockSharp.Algo.Storages
 
 			IEnumerable<DateTime> IMarketDataStorage.Dates => _messageStorage.Dates;
 
-			Type IMarketDataStorage.DataType => _messageStorage.DataType;
+			DataType IMarketDataStorage.DataType => _messageStorage.DataType;
 
 			SecurityId IMarketDataStorage.SecurityId => _messageStorage.SecurityId;
-
-			object IMarketDataStorage.Arg => _messageStorage.Arg;
 
 			IMarketDataStorageDrive IMarketDataStorage.Drive => _messageStorage.Drive;
 
@@ -892,6 +938,11 @@ namespace StockSharp.Algo.Storages
 		public const string SecurityVerticalBarSeparator = "##VBAR##";
 
 		/// <summary>
+		/// The delimiter, replacing '?' in the path for instruments with id like AA-CA?SPB@SPBEX. Is equal to '##QSTN##'.
+		/// </summary>
+		public const string SecurityQuestionSeparator = "##QSTN##";
+
+		/// <summary>
 		/// The delimiter, replacing first '.' in the path for instruments with id like .AA-CA@SPBEX. Is equal to '##DOT##'.
 		/// </summary>
 		public const string SecurityFirstDot = "##DOT##";
@@ -907,6 +958,7 @@ namespace StockSharp.Algo.Storages
 			{ "*", SecurityStarSeparator },
 			{ ":", SecurityColonSeparator },
 			{ "|", SecurityVerticalBarSeparator },
+			{ "?", SecurityQuestionSeparator },
 		};
 
 		// http://stackoverflow.com/questions/62771/how-check-if-given-string-is-legal-allowed-file-name-under-windows
@@ -964,61 +1016,28 @@ namespace StockSharp.Algo.Storages
 		}
 
 		/// <summary>
-		/// Convert <see cref="string"/> to <see cref="DataType.Arg"/> value.
-		/// </summary>
-		/// <param name="messageType">Message type.</param>
-		/// <param name="strValue"><see cref="string"/> value.</param>
-		/// <returns><see cref="DataType.Arg"/> value.</returns>
-		public static object StringToMessageArg(this Type messageType, string strValue)
-		{
-			if (messageType == null)
-				throw new ArgumentNullException(nameof(messageType));
-
-			if (messageType == typeof(ExecutionMessage))
-				return strValue.To<ExecutionTypes>();
-			else if (messageType.IsCandleMessage())
-				return messageType.ToCandleArg(strValue);
-			else
-				return strValue;
-		}
-
-		/// <summary>
-		/// Convert <see cref="DataType.Arg"/> to <see cref="string"/> value.
-		/// </summary>
-		/// <param name="messageType">Message type.</param>
-		/// <param name="arg"><see cref="DataType.Arg"/> value.</param>
-		/// <returns><see cref="string"/> value.</returns>
-		public static string MessageArgToString(this Type messageType, object arg)
-		{
-			if (messageType == null)
-				throw new ArgumentNullException(nameof(messageType));
-
-			if (messageType == typeof(ExecutionMessage))
-			{
-				if (arg is null)
-					throw new ArgumentNullException(nameof(arg));
-
-				return arg.ToString();
-			}
-			else if (messageType.IsCandleMessage())
-				return messageType.CandleArgToFolderName(arg);
-			else
-				return arg?.ToString();
-		}
-
-		/// <summary>
 		/// Load messages.
 		/// </summary>
 		/// <param name="settings">Storage settings.</param>
 		/// <param name="candleBuilderProvider">Candle builders provider.</param>
-		/// <param name="msg">Market-data message (uses as a subscribe/unsubscribe in outgoing case, confirmation event in incoming case).</param>
+		/// <param name="subscription">Market-data message (uses as a subscribe/unsubscribe in outgoing case, confirmation event in incoming case).</param>
 		/// <param name="newOutMessage">New message event.</param>
 		/// <returns>Last date.</returns>
-		public static DateTimeOffset? LoadMessages(this StorageCoreSettings settings, CandleBuilderProvider candleBuilderProvider, MarketDataMessage msg, Action<Message> newOutMessage)
+		public static DateTimeOffset? LoadMessages(this StorageCoreSettings settings, CandleBuilderProvider candleBuilderProvider, MarketDataMessage subscription, Action<Message> newOutMessage)
 		{
-			var transactionId = msg.TransactionId;
+			if (settings is null)
+				throw new ArgumentNullException(nameof(settings));
 
-			void SendReply() => newOutMessage(new SubscriptionResponseMessage { OriginalTransactionId = transactionId });
+			if (candleBuilderProvider is null)
+				throw new ArgumentNullException(nameof(candleBuilderProvider));
+
+			if (subscription is null)
+				throw new ArgumentNullException(nameof(subscription));
+
+			if (newOutMessage is null)
+				throw new ArgumentNullException(nameof(newOutMessage));
+
+			void SendReply() => newOutMessage(new SubscriptionResponseMessage { OriginalTransactionId = subscription.TransactionId });
 			void SendOut(Message message)
 			{
 				message.OfflineMode = MessageOfflineModes.Ignore;
@@ -1031,147 +1050,146 @@ namespace StockSharp.Algo.Storages
 				return (IMarketDataStorage<TMessage>)settings.GetStorage(securityId, typeof(TMessage), arg);
 			}
 
-			var from = msg.From;
-			var to = msg.To;
-
 			DateTimeOffset? lastTime = null;
 
-			if (from == null && to == null)
+			if (subscription.From == null && subscription.To == null)
 				return lastTime;
 
-			var secId = msg.SecurityId;
+			var secId = subscription.SecurityId;
 
-			if (msg.DataType2 == DataType.Level1)
+			if (subscription.DataType2 == DataType.Level1)
 			{
-				if (msg.BuildMode != MarketDataBuildModes.Build)
+				if (subscription.BuildMode != MarketDataBuildModes.Build)
 				{
 					if (settings.IsMode(StorageModes.Incremental))
-						lastTime = LoadMessages(GetStorage<Level1ChangeMessage>(secId, null), from, to, TimeSpan.Zero, transactionId, SendReply, SendOut);
+						lastTime = LoadMessages(GetStorage<Level1ChangeMessage>(secId, null), subscription, TimeSpan.Zero, SendReply, SendOut);
 				}
 				else
 				{
-					if (msg.BuildFrom == DataType.OrderLog)
+					if (subscription.BuildFrom == DataType.OrderLog)
 					{
 						var storage = GetStorage<ExecutionMessage>(secId, ExecutionTypes.OrderLog);
 
-						var range = GetRange(storage, from, to, TimeSpan.Zero);
+						var range = GetRange(storage, subscription, TimeSpan.Zero);
 
 						if (range != null)
 						{
 							lastTime = LoadMessages(storage
 								.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
-								.ToLevel1(msg.DepthBuilder, msg.RefreshSpeed ?? default, msg.MaxDepth ?? int.MaxValue), range.Item1, transactionId, SendReply, SendOut);
+								.ToLevel1(subscription.DepthBuilder, subscription.RefreshSpeed ?? default), range.Item1, subscription.TransactionId, SendReply, SendOut);
 						}
 					}
-					else if (msg.BuildFrom == DataType.MarketDepth)
+					else if (subscription.BuildFrom == DataType.MarketDepth)
 					{
 						var storage = GetStorage<QuoteChangeMessage>(secId, null);
 
-						var range = GetRange(storage, from, to, TimeSpan.Zero);
+						var range = GetRange(storage, subscription, TimeSpan.Zero);
 
 						if (range != null)
 						{
 							lastTime = LoadMessages(storage
 								.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
-								.ToLevel1(), range.Item1, transactionId, SendReply, SendOut);
+								.ToLevel1(), range.Item1, subscription.TransactionId, SendReply, SendOut);
 						}
 					}
 				}
 			}
-			else if (msg.DataType2 == DataType.MarketDepth)
+			else if (subscription.DataType2 == DataType.MarketDepth)
 			{
-				if (msg.BuildMode != MarketDataBuildModes.Build)
+				if (subscription.BuildMode != MarketDataBuildModes.Build)
 				{
 					if (settings.IsMode(StorageModes.Incremental))
-						lastTime = LoadMessages(GetStorage<QuoteChangeMessage>(secId, null), from, to, TimeSpan.Zero, transactionId, SendReply, SendOut);
+						lastTime = LoadMessages(GetStorage<QuoteChangeMessage>(secId, null), subscription, TimeSpan.Zero, SendReply, SendOut);
 				}
 				else
 				{
-					if (msg.BuildFrom == DataType.OrderLog)
+					if (subscription.BuildFrom == DataType.OrderLog)
 					{
 						var storage = GetStorage<ExecutionMessage>(secId, ExecutionTypes.OrderLog);
 
-						var range = GetRange(storage, from, to, TimeSpan.Zero);
+						var range = GetRange(storage, subscription, TimeSpan.Zero);
 
 						if (range != null)
 						{
 							lastTime = LoadMessages(storage
 								.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
-								.ToOrderBooks(msg.DepthBuilder, msg.RefreshSpeed ?? default, msg.MaxDepth ?? int.MaxValue), range.Item1, transactionId, SendReply, SendOut);
+								.ToOrderBooks(subscription.DepthBuilder, subscription.RefreshSpeed ?? default, subscription.MaxDepth ?? int.MaxValue)
+								.BuildIfNeed(),
+							range.Item1, subscription.TransactionId, SendReply, SendOut);
 						}
 					}
-					else if (msg.BuildFrom == DataType.Level1)
+					else if (subscription.BuildFrom == DataType.Level1)
 					{
 						var storage = GetStorage<Level1ChangeMessage>(secId, null);
 
-						var range = GetRange(storage, from, to, TimeSpan.Zero);
+						var range = GetRange(storage, subscription, TimeSpan.Zero);
 
 						if (range != null)
 						{
 							lastTime = LoadMessages(storage
 								.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
-								.ToOrderBooks(), range.Item1, transactionId, SendReply, SendOut);
+								.ToOrderBooks(), range.Item1, subscription.TransactionId, SendReply, SendOut);
 						}
 					}
 				}
 			}
-			else if (msg.DataType2 == DataType.Ticks)
+			else if (subscription.DataType2 == DataType.Ticks)
 			{
-				if (msg.BuildMode != MarketDataBuildModes.Build)
-					lastTime = LoadMessages(GetStorage<ExecutionMessage>(secId, ExecutionTypes.Tick), from, to, settings.DaysLoad, transactionId, SendReply, SendOut);
+				if (subscription.BuildMode != MarketDataBuildModes.Build)
+					lastTime = LoadMessages(GetStorage<ExecutionMessage>(secId, ExecutionTypes.Tick), subscription, settings.DaysLoad, SendReply, SendOut);
 				else
 				{
-					if (msg.BuildFrom == DataType.OrderLog)
+					if (subscription.BuildFrom == DataType.OrderLog)
 					{
 						var storage = GetStorage<ExecutionMessage>(secId, ExecutionTypes.OrderLog);
 
-						var range = GetRange(storage, from, to, TimeSpan.Zero);
+						var range = GetRange(storage, subscription, TimeSpan.Zero);
 
 						if (range != null)
 						{
 							lastTime = LoadMessages(storage
 								.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
-								.ToTicks(), range.Item1, transactionId, SendReply, SendOut);
+								.ToTicks(), range.Item1, subscription.TransactionId, SendReply, SendOut);
 						}
 					}
-					else if (msg.BuildFrom == DataType.Level1)
+					else if (subscription.BuildFrom == DataType.Level1)
 					{
 						var storage = GetStorage<Level1ChangeMessage>(secId, null);
 
-						var range = GetRange(storage, from, to, TimeSpan.Zero);
+						var range = GetRange(storage, subscription, TimeSpan.Zero);
 
 						if (range != null)
 						{
 							lastTime = LoadMessages(storage
 								.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
-								.ToTicks(), range.Item1, transactionId, SendReply, SendOut);
+								.ToTicks(), range.Item1, subscription.TransactionId, SendReply, SendOut);
 						}
 					}
 				}
 			}
-			else if (msg.DataType2 == DataType.OrderLog)
+			else if (subscription.DataType2 == DataType.OrderLog)
 			{
-				lastTime = LoadMessages(GetStorage<ExecutionMessage>(secId, ExecutionTypes.OrderLog), from, to, settings.DaysLoad, transactionId, SendReply, SendOut);
+				lastTime = LoadMessages(GetStorage<ExecutionMessage>(secId, ExecutionTypes.OrderLog), subscription, settings.DaysLoad, SendReply, SendOut);
 			}
-			else if (msg.DataType2 == DataType.News)
+			else if (subscription.DataType2 == DataType.News)
 			{
-				lastTime = LoadMessages(GetStorage<NewsMessage>(default, null), from, to, settings.DaysLoad, transactionId, SendReply, SendOut);
+				lastTime = LoadMessages(GetStorage<NewsMessage>(default, null), subscription, settings.DaysLoad, SendReply, SendOut);
 			}
-			else if (msg.DataType2 == DataType.Board)
+			else if (subscription.DataType2 == DataType.BoardState)
 			{
-				lastTime = LoadMessages(GetStorage<BoardStateMessage>(default, null), from, to, settings.DaysLoad, transactionId, SendReply, SendOut);
+				lastTime = LoadMessages(GetStorage<BoardStateMessage>(default, null), subscription, settings.DaysLoad, SendReply, SendOut);
 			}
-			else if (msg.DataType2.IsCandles)
+			else if (subscription.DataType2.IsCandles)
 			{
-				if (msg.DataType2.MessageType == typeof(TimeFrameCandleMessage))
+				if (subscription.DataType2.MessageType == typeof(TimeFrameCandleMessage))
 				{
-					var tf = msg.GetTimeFrame();
+					var tf = subscription.GetTimeFrame();
 
-					if (msg.BuildMode == MarketDataBuildModes.Build)
+					DateTimeOffset? TryBuildCandles()
 					{
 						IMarketDataStorage storage;
 
-						var buildFrom = msg.BuildFrom;
+						var buildFrom = subscription.BuildFrom;
 
 						if (buildFrom == null || buildFrom == DataType.Ticks)
 							storage = GetStorage<ExecutionMessage>(secId, ExecutionTypes.Tick);
@@ -1182,14 +1200,16 @@ namespace StockSharp.Algo.Storages
 						else if (buildFrom == DataType.MarketDepth)
 							storage = GetStorage<QuoteChangeMessage>(secId, null);
 						else
-							throw new ArgumentOutOfRangeException(nameof(msg), buildFrom, LocalizedStrings.Str1219);
+							throw new ArgumentOutOfRangeException(nameof(subscription), buildFrom, LocalizedStrings.Str1219);
 
-						var range = GetRange(storage, from, to, TimeSpan.FromDays(2));
+						var range = GetRange(storage, subscription, TimeSpan.FromDays(2));
 
-						if (range == null && buildFrom == null)
+						if (range != null && buildFrom == null)
+							buildFrom = DataType.Ticks;
+						else if (range == null && buildFrom == null)
 						{
 							storage = GetStorage<Level1ChangeMessage>(secId, null);
-							range = GetRange(storage, from, to, TimeSpan.FromDays(2));
+							range = GetRange(storage, subscription, TimeSpan.FromDays(2));
 
 							if (range != null)
 								buildFrom = DataType.Level1;
@@ -1197,67 +1217,70 @@ namespace StockSharp.Algo.Storages
 
 						if (range != null)
 						{
-							var mdMsg = msg.TypedClone();
+							var mdMsg = subscription.TypedClone();
 							mdMsg.From = mdMsg.To = null;
 
 							if (buildFrom == DataType.Ticks)
 							{
-								lastTime = LoadMessages(((IMarketDataStorage<ExecutionMessage>)storage)
+								return LoadMessages(((IMarketDataStorage<ExecutionMessage>)storage)
 												.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
-												.ToCandles(mdMsg, candleBuilderProvider: candleBuilderProvider), range.Item1, transactionId, SendReply, SendOut);
+												.ToCandles(mdMsg, candleBuilderProvider: candleBuilderProvider), range.Item1, subscription.TransactionId, SendReply, SendOut);
 							}
 							else if (buildFrom == DataType.OrderLog)
 							{
-								switch (msg.BuildField)
+								switch (subscription.BuildField)
 								{
 									case null:
 									case Level1Fields.LastTradePrice:
-										lastTime = LoadMessages(((IMarketDataStorage<ExecutionMessage>)storage)
-											                .Load(range.Item1.Date, range.Item2.Date.EndOfDay())
-											                .ToCandles(mdMsg, candleBuilderProvider: candleBuilderProvider), range.Item1, transactionId, SendReply, SendOut);
-
-										break;
+										return LoadMessages(((IMarketDataStorage<ExecutionMessage>)storage)
+															.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+															.ToCandles(mdMsg, candleBuilderProvider: candleBuilderProvider), range.Item1, subscription.TransactionId, SendReply, SendOut);
 											
 									// TODO
 									//case Level1Fields.SpreadMiddle:
 									//	lastTime = LoadMessages(((IMarketDataStorage<ExecutionMessage>)storage)
 									//	    .Load(range.Item1.Date, range.Item2.Date.EndOfDay())
 									//		.ToOrderBooks(OrderLogBuilders.Plaza2.CreateBuilder(security.ToSecurityId()))
-									//	    .ToCandles(mdMsg, false, exchangeInfoProvider: exchangeInfoProvider), range.Item1, transactionId, SendReply, SendOut);
+									//	    .ToCandles(mdMsg, false, exchangeInfoProvider: exchangeInfoProvider), range.Item1, subscription.TransactionId, SendReply, SendOut);
 									//	break;
 								}
 							}
 							else if (buildFrom == DataType.Level1)
 							{
-								switch (msg.BuildField)
+								switch (subscription.BuildField)
 								{
 									case null:
 									case Level1Fields.LastTradePrice:
-										lastTime = LoadMessages(((IMarketDataStorage<Level1ChangeMessage>)storage)
-											                .Load(range.Item1.Date, range.Item2.Date.EndOfDay())
-											                .ToTicks()
-											                .ToCandles(mdMsg, candleBuilderProvider: candleBuilderProvider), range.Item1, transactionId, SendReply, SendOut);
-										break;
+										return LoadMessages(((IMarketDataStorage<Level1ChangeMessage>)storage)
+															.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+															.ToTicks()
+															.ToCandles(mdMsg, candleBuilderProvider: candleBuilderProvider), range.Item1, subscription.TransactionId, SendReply, SendOut);
 
 									case Level1Fields.BestBidPrice:
 									case Level1Fields.BestAskPrice:
 									case Level1Fields.SpreadMiddle:
-										lastTime = LoadMessages(((IMarketDataStorage<Level1ChangeMessage>)storage)
-											                .Load(range.Item1.Date, range.Item2.Date.EndOfDay())
-											                .ToOrderBooks()
-											                .ToCandles(mdMsg, msg.BuildField.Value, candleBuilderProvider: candleBuilderProvider), range.Item1, transactionId, SendReply, SendOut);
-										break;
+										return LoadMessages(((IMarketDataStorage<Level1ChangeMessage>)storage)
+															.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
+															.ToOrderBooks()
+															.ToCandles(mdMsg, subscription.BuildField.Value, candleBuilderProvider: candleBuilderProvider), range.Item1, subscription.TransactionId, SendReply, SendOut);
 								}
 							}
 							else if (buildFrom == DataType.MarketDepth)
 							{
-								lastTime = LoadMessages(((IMarketDataStorage<QuoteChangeMessage>)storage)
+								return LoadMessages(((IMarketDataStorage<QuoteChangeMessage>)storage)
 													.Load(range.Item1.Date, range.Item2.Date.EndOfDay())
-									                .ToCandles(mdMsg, msg.BuildField ?? Level1Fields.SpreadMiddle, candleBuilderProvider: candleBuilderProvider), range.Item1, transactionId, SendReply, SendOut);
+													.ToCandles(mdMsg, subscription.BuildField ?? Level1Fields.SpreadMiddle, candleBuilderProvider: candleBuilderProvider), range.Item1, subscription.TransactionId, SendReply, SendOut);
 							}
 							else
-								throw new ArgumentOutOfRangeException(nameof(msg), msg.BuildFrom, LocalizedStrings.Str1219);
+								throw new ArgumentOutOfRangeException(nameof(subscription), subscription.BuildFrom, LocalizedStrings.Str1219);
 						}
+
+						return null;
+					}
+
+					if (subscription.BuildMode == MarketDataBuildModes.Build)
+					{
+						lastTime = TryBuildCandles();
 					}
 					else
 					{
@@ -1269,23 +1292,26 @@ namespace StockSharp.Algo.Storages
 							return candleBuilderProvider.GetCandleMessageBuildableStorage(settings.StorageRegistry, securityId, timeFrame, settings.Drive, settings.Format);
 						}
 
-						var filter = msg.IsCalcVolumeProfile
+						var filter = subscription.IsCalcVolumeProfile
 							? (Func<CandleMessage, bool>)(c => c.PriceLevels != null)
 							: null;
 
-						lastTime = LoadMessages(GetTimeFrameCandleMessageStorage(secId, tf, msg.AllowBuildFromSmallerTimeFrame), from, to, settings.DaysLoad, transactionId, SendReply, SendOut, filter);
+						lastTime = LoadMessages(GetTimeFrameCandleMessageStorage(secId, tf, subscription.AllowBuildFromSmallerTimeFrame), subscription, settings.DaysLoad, SendReply, SendOut, filter);
+
+						if (lastTime == null && subscription.BuildMode == MarketDataBuildModes.LoadAndBuild)
+							lastTime = TryBuildCandles();
 					}
 				}
 				else
 				{
-					var storage = (IMarketDataStorage<CandleMessage>)settings.GetStorage(secId, msg.DataType2.MessageType, msg.GetArg());
+					var storage = (IMarketDataStorage<CandleMessage>)settings.GetStorage(secId, subscription.DataType2.MessageType, subscription.GetArg());
 
-					var range = GetRange(storage, from, to, settings.DaysLoad);
+					var range = GetRange(storage, subscription, settings.DaysLoad);
 
 					if (range != null)
 					{
 						var messages = storage.Load(range.Item1.Date, range.Item2.Date.EndOfDay());
-						lastTime = LoadMessages(messages, range.Item1, transactionId, SendReply, SendOut);
+						lastTime = LoadMessages(messages, range.Item1, subscription.TransactionId, SendReply, SendOut);
 					}
 				}
 			}
@@ -1293,15 +1319,25 @@ namespace StockSharp.Algo.Storages
 			return lastTime;
 		}
 
-		private static Tuple<DateTimeOffset, DateTimeOffset> GetRange(IMarketDataStorage storage, DateTimeOffset? from, DateTimeOffset? to, TimeSpan daysLoad)
+		private static Tuple<DateTimeOffset, DateTimeOffset> GetRange(IMarketDataStorage storage, ISubscriptionMessage subscription, TimeSpan daysLoad)
 		{
+			if (storage is null)
+				throw new ArgumentNullException(nameof(storage));
+
+			if (subscription is null)
+				throw new ArgumentNullException(nameof(subscription));
+
 			var last = storage.Dates.LastOr();
 
 			if (last == null)
 				return null;
 
+			var to = subscription.To;
+
 			if (to == null)
 				to = last.Value;
+
+			var from = subscription.From;
 
 			if (from == null)
 				from = to.Value - daysLoad;
@@ -1309,20 +1345,26 @@ namespace StockSharp.Algo.Storages
 			return Tuple.Create(from.Value, to.Value);
 		}
 
-		private static DateTimeOffset? LoadMessages<TMessage>(IMarketDataStorage<TMessage> storage, DateTimeOffset? from, DateTimeOffset? to, TimeSpan daysLoad, long transactionId, Action sendReply, Action<Message> newOutMessage, Func<TMessage, bool> filter = null) 
+		private static DateTimeOffset? LoadMessages<TMessage>(IMarketDataStorage<TMessage> storage, ISubscriptionMessage subscription, TimeSpan daysLoad, Action sendReply, Action<Message> newOutMessage, Func<TMessage, bool> filter = null) 
 			where TMessage : Message, ISubscriptionIdMessage, IServerTimeMessage
 		{
-			var range = GetRange(storage, from, to, daysLoad);
+			var range = GetRange(storage, subscription, daysLoad);
 
 			if (range == null)
 				return null;
 
 			var messages = storage.Load(range.Item1.Date, range.Item2.Date.EndOfDay());
 
-			return LoadMessages(messages, range.Item1, transactionId, sendReply, newOutMessage, filter);
+			if (subscription.Skip != default)
+				messages = messages.Skip((int)subscription.Skip.Value);
+
+			if (subscription.Count != default)
+				messages = messages.Take((int)subscription.Count.Value);
+
+			return LoadMessages(messages, range.Item1, subscription.TransactionId, sendReply, newOutMessage, filter);
 		}
 
-		private static DateTimeOffset? LoadMessages<TMessage>(IEnumerable<TMessage> messages, DateTimeOffset lastTime, long transactionId, Action sendReply, Action<Message> newOutMessage, Func<TMessage, bool> filter = null)
+		private static DateTimeOffset LoadMessages<TMessage>(IEnumerable<TMessage> messages, DateTimeOffset lastTime, long transactionId, Action sendReply, Action<Message> newOutMessage, Func<TMessage, bool> filter = null)
 			where TMessage : Message, ISubscriptionIdMessage, IServerTimeMessage
 		{
 			if (messages == null)
@@ -1366,7 +1408,167 @@ namespace StockSharp.Algo.Storages
 		/// <returns>Market-data storage.</returns>
 		public static IMarketDataStorage GetStorage(this IStorageRegistry registry, Security security, DataType dataType, IMarketDataDrive drive = null, StorageFormats format = StorageFormats.Binary)
 		{
+			if (dataType is null)
+				throw new ArgumentNullException(nameof(dataType));
+
 			return registry.GetStorage(security, dataType.MessageType, dataType.Arg, drive, format);
+		}
+
+		/// <summary>
+		/// To get the market-data storage.
+		/// </summary>
+		/// <param name="registry">Market-data storage.</param>
+		/// <param name="securityId">Security ID.</param>
+		/// <param name="dataType">Data type info.</param>
+		/// <param name="drive">The storage. If a value is <see langword="null" />, <see cref="IStorageRegistry.DefaultDrive"/> will be used.</param>
+		/// <param name="format">The format type. By default <see cref="StorageFormats.Binary"/> is passed.</param>
+		/// <returns>Market-data storage.</returns>
+		public static IMarketDataStorage GetStorage(this IStorageRegistry registry, SecurityId securityId, DataType dataType, IMarketDataDrive drive = null, StorageFormats format = StorageFormats.Binary)
+		{
+			if (dataType is null)
+				throw new ArgumentNullException(nameof(dataType));
+
+			return registry.GetStorage(securityId, dataType.MessageType, dataType.Arg, drive, format);
+		}
+
+		/// <summary>
+		/// Try build books by <see cref="OrderBookIncrementBuilder"/> in case of <paramref name="books"/> is incremental changes.
+		/// </summary>
+		/// <param name="books">Order books.</param>
+		/// <param name="logs">Logs.</param>
+		/// <returns>Order books.</returns>
+		public static IEnumerable<QuoteChangeMessage> BuildIfNeed(this IEnumerable<QuoteChangeMessage> books, ILogReceiver logs = null)
+		{
+			if (books is null)
+				throw new ArgumentNullException(nameof(books));
+
+			var builders = new Dictionary<SecurityId, OrderBookIncrementBuilder>();
+
+			foreach (var book in books)
+			{
+				if (book.State != null)
+				{
+					var builder = builders.SafeAdd(book.SecurityId, key => new OrderBookIncrementBuilder(key) { Parent = logs ?? GlobalLogReceiver.Instance });
+					var change = builder.TryApply(book);
+
+					if (change != null)
+						yield return change;
+				}
+				else
+					yield return book;
+			}
+		}
+
+		/// <summary>
+		/// To get the snapshot storage.
+		/// </summary>
+		/// <param name="registry">Snapshot storage registry.</param>
+		/// <param name="dataType">Data type info.</param>
+		/// <returns>The snapshot storage.</returns>
+		public static ISnapshotStorage GetSnapshotStorage(this SnapshotRegistry registry, DataType dataType)
+		{
+			if (registry is null)
+				throw new ArgumentNullException(nameof(registry));
+
+			if (dataType is null)
+				throw new ArgumentNullException(nameof(dataType));
+
+			return registry.GetSnapshotStorage(dataType.MessageType, dataType.Arg);
+		}
+
+		internal static (int messageType, long arg1, decimal arg2, int arg3) Extract(this DataType dataType)
+		{
+			if (dataType is null)
+				throw new ArgumentNullException(nameof(dataType));
+
+			var messageType = (int)dataType.MessageType.ToMessageType();
+
+			var arg1 = 0L;
+			var arg2 = 0M;
+			var arg3 = 0;
+
+			if (dataType.Arg is ExecutionTypes execType)
+				arg1 = (int)execType;
+			else if (dataType.Arg is TimeSpan tf)
+				arg1 = tf.Ticks;
+			else if (dataType.Arg is Unit unit)
+			{
+				arg1 = (int)unit.Type;
+				arg2 = unit.Value;
+			}
+			else if (dataType.Arg is int i)
+				arg1 = i;
+			else if (dataType.Arg is long l)
+				arg1 = l;
+			else if (dataType.Arg is decimal d)
+				arg2 = d;
+			else if (dataType.Arg is PnFArg pnf)
+			{
+				arg1 = (int)pnf.BoxSize.Type;
+				arg2 = pnf.BoxSize.Value;
+				arg3 = pnf.ReversalAmount;
+			}
+			else
+				throw new ArgumentOutOfRangeException(nameof(dataType), dataType, LocalizedStrings.Str1219);
+
+			return (messageType, arg1, arg2, arg3);
+		}
+
+		internal static DataType ToDataType(this int messageType, long arg1, decimal arg2, int arg3)
+		{
+			var type = ((MessageTypes)messageType).ToMessageType();
+
+			object arg;
+
+			if (type == typeof(ExecutionMessage))
+				arg = (ExecutionTypes)arg1;
+			else if (type.IsCandleMessage())
+			{
+				var candleArg = type.CreateInstance<CandleMessage>().Arg;
+
+				if (candleArg is TimeSpan)
+					arg = arg1.To<TimeSpan>();
+				else if (candleArg is Unit)
+					arg = new Unit(arg2, (UnitTypes)arg1);
+				else if (candleArg is int)
+					arg = (int)arg1;
+				else if (candleArg is long)
+					arg = arg1;
+				else if (candleArg is decimal)
+					arg = arg2;
+				else if (candleArg is PnFArg)
+				{
+					arg = new PnFArg
+					{
+						BoxSize = new Unit(arg2, (UnitTypes)arg1),
+						ReversalAmount = arg3,
+					};
+				}
+				else
+					throw new ArgumentOutOfRangeException(nameof(messageType), candleArg, LocalizedStrings.Str1219);
+			}
+			else
+				throw new ArgumentOutOfRangeException(nameof(messageType), type, LocalizedStrings.Str1219);
+			
+			return DataType.Create(type, arg);
+		}
+
+		/// <summary>
+		/// Make association with adapter.
+		/// </summary>
+		/// <param name="provider">Message adapter's provider interface.</param>
+		/// <param name="key">Key.</param>
+		/// <param name="adapter">Adapter.</param>
+		/// <returns><see langword="true"/> if the association is successfully changed, otherwise, <see langword="false"/>.</returns>
+		public static bool SetAdapter<TKey>(this IMappingMessageAdapterProvider<TKey> provider, TKey key, IMessageAdapter adapter)
+		{
+			if (provider is null)
+				throw new ArgumentNullException(nameof(provider));
+
+			if (adapter is null)
+				throw new ArgumentNullException(nameof(adapter));
+
+			return provider.SetAdapter(key, adapter.Id);
 		}
 	}
 }

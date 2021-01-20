@@ -6,11 +6,12 @@ namespace StockSharp.Messages
 	using System.Xml.Serialization;
 
 	using Ecng.Collections;
+	using Ecng.Serialization;
 
 	/// <summary>
 	/// Command types.
 	/// </summary>
-	[DataContract]
+	[System.Runtime.Serialization.DataContract]
 	[Serializable]
 	public enum CommandTypes
 	{
@@ -114,7 +115,7 @@ namespace StockSharp.Messages
 	/// <summary>
 	/// Command scopes.
 	/// </summary>
-	[DataContract]
+	[System.Runtime.Serialization.DataContract]
 	[Serializable]
 	public enum CommandScopes
 	{
@@ -159,14 +160,20 @@ namespace StockSharp.Messages
 		/// </summary>
 		[EnumMember]
 		FileGroup,
+
+		/// <summary>
+		/// Product.
+		/// </summary>
+		[EnumMember]
+		Product,
 	}
 
 	/// <summary>
 	/// The message contains information about command to change state.
 	/// </summary>
 	[Serializable]
-	[DataContract]
-	public class CommandMessage : Message, ITransactionIdMessage
+	[System.Runtime.Serialization.DataContract]
+	public class CommandMessage : BaseRequestMessage
 	{
 		/// <summary>
 		/// Initialize <see cref="CommandMessage"/>.
@@ -181,13 +188,9 @@ namespace StockSharp.Messages
 		/// </summary>
 		/// <param name="type">Message type.</param>
 		protected CommandMessage(MessageTypes type)
-			: base(MessageTypes.Command)
+			: base(type)
 		{
 		}
-
-		/// <inheritdoc />
-		[DataMember]
-		public long TransactionId { get; set; }
 
 		/// <summary>
 		/// Command.
@@ -202,17 +205,20 @@ namespace StockSharp.Messages
 		public CommandScopes Scope { get; set; }
 
 		/// <summary>
-		/// Adapter identifier.
+		/// Identifier.
 		/// </summary>
 		[DataMember]
-		public Guid ObjectId { get; set; }
+		public string ObjectId { get; set; }
+
+		[field: NonSerialized]
+		private IDictionary<string, Tuple<string, string>> _parameters = new Dictionary<string, Tuple<string, string>>();
 
 		/// <summary>
 		/// Parameters.
 		/// </summary>
-		[DataMember]
+		[Ignore]
 		[XmlIgnore]
-		public IDictionary<string, Tuple<string, string>> Parameters { get; private set; } = new Dictionary<string, Tuple<string, string>>();
+		public IDictionary<string, Tuple<string, string>> Parameters => _parameters;
 
 		/// <summary>
 		/// Create a copy of <see cref="CommandMessage"/>.
@@ -220,22 +226,33 @@ namespace StockSharp.Messages
 		/// <returns>Copy.</returns>
 		public override Message Clone()
 		{
-			var clone = new CommandMessage
-			{
-				TransactionId = TransactionId,
-				Command = Command,
-				Scope = Scope,
-				ObjectId = ObjectId,
-				Parameters = Parameters.ToDictionary(),
-			};
+			var clone = new CommandMessage();
 
 			CopyTo(clone);
 
 			return clone;
 		}
 
+		/// <summary>
+		/// Copy the message into the <paramref name="destination" />.
+		/// </summary>
+		/// <param name="destination">The object, to which copied information.</param>
+		/// <returns>The object, to which copied information.</returns>
+		protected void CopyTo(CommandMessage destination)
+		{
+			base.CopyTo(destination);
+
+			destination.Command = Command;
+			destination.Scope = Scope;
+			destination.ObjectId = ObjectId;
+			destination.Parameters.AddRange(Parameters);
+		}
+
+		/// <inheritdoc />
+		public override DataType DataType => DataType.Command;
+
 		/// <inheritdoc />
 		public override string ToString()
-			=> base.ToString() + $",TrId={TransactionId},Cmd={Command},Scp={Scope},Id={ObjectId}";
+			=> base.ToString() + $",Cmd={Command},Scp={Scope},Id={ObjectId}";
 	}
 }

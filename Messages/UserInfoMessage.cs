@@ -9,6 +9,7 @@ namespace StockSharp.Messages
 	using System.Security;
 	using System.Xml.Serialization;
 
+	using Ecng.Common;
 	using Ecng.Collections;
 
 	using StockSharp.Localization;
@@ -20,14 +21,6 @@ namespace StockSharp.Messages
 	[Serializable]
 	public class UserInfoMessage : BaseSubscriptionIdMessage<UserInfoMessage>, ITransactionIdMessage
 	{
-		/// <summary>
-		/// Initializes a new instance of the <see cref="UserInfoMessage"/>.
-		/// </summary>
-		public UserInfoMessage()
-			: base(MessageTypes.UserInfo)
-		{
-		}
-
 		/// <summary>
 		/// Login.
 		/// </summary>
@@ -164,11 +157,49 @@ namespace StockSharp.Messages
 		/// </summary>
 		public IDictionary<UserPermissions, IDictionary<Tuple<string, string, object, DateTime?>, bool>> Permissions { get; } = new Dictionary<UserPermissions, IDictionary<Tuple<string, string, object, DateTime?>, bool>>();
 
+		/// <summary>
+		/// Can publish NuGet packages.
+		/// </summary>
+		[DataMember]
+		public bool CanPublish { get; set; }
+
+		/// <summary>
+		/// Is EULA accepted.
+		/// </summary>
+		[DataMember]
+		public bool? IsAgreementAccepted { get; set; }
+
 		/// <inheritdoc />
-		public override string ToString()
+		public override DataType DataType => DataType.Users;
+
+		/// <summary>
+		/// Upload size limit.
+		/// </summary>
+		[DataMember]
+		public long UploadLimit { get; set; }
+
+		private string[] _features = ArrayHelper.Empty<string>();
+
+		/// <summary>
+		/// Available features.
+		/// </summary>
+		[DataMember]
+		public string[] Features
 		{
-			return base.ToString() + $",Name={Login}";
+			get => _features;
+			set => _features = value ?? throw new ArgumentNullException(nameof(value));
 		}
+
+		/// <summary>
+		/// Initializes a new instance of the <see cref="UserInfoMessage"/>.
+		/// </summary>
+		public UserInfoMessage()
+			: base(MessageTypes.UserInfo)
+		{
+		}
+
+		/// <inheritdoc />
+		public override string ToString() => base.ToString() + $",Name={Login}";
 
 		/// <inheritdoc />
 		public override void CopyTo(UserInfoMessage destination)
@@ -180,7 +211,7 @@ namespace StockSharp.Messages
 			destination.TransactionId = TransactionId;
 			destination.OriginalTransactionId = OriginalTransactionId;
 			destination.IsBlocked = IsBlocked;
-			destination.IpRestrictions = IpRestrictions.ToArray();
+			destination.IpRestrictions = IpRestrictions?.ToArray() ?? Enumerable.Empty<IPAddress>();
 			destination.Id = Id;
 			destination.DisplayName = DisplayName;
 			destination.Phone = Phone;
@@ -194,7 +225,15 @@ namespace StockSharp.Messages
 			destination.Avatar = Avatar;
 			destination.CreationDate = CreationDate;
 			destination.AuthToken = AuthToken;
-			destination.Permissions.AddRange(Permissions.ToDictionary());
+			destination.CanPublish = CanPublish;
+			destination.IsAgreementAccepted = IsAgreementAccepted;
+			destination.UploadLimit = UploadLimit;
+
+			if (Features.Length > 0)
+				destination.Features = Features.ToArray();
+
+			if (Permissions?.Count > 0)
+				destination.Permissions.AddRange(Permissions.ToDictionary());
 		}
 	}
 }

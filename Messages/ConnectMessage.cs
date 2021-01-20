@@ -34,16 +34,37 @@ namespace StockSharp.Messages
 		}
 
 		/// <summary>
+		/// Client app version.
+		/// </summary>
+		[DataMember]
+		public string ClientVersion { get; set; }
+
+		/// <summary>
+		/// Optional server session id.
+		/// </summary>
+		[DataMember]
+		public string SessionId { get; set; }
+
+		/// <summary>
 		/// Create a copy of <see cref="ConnectMessage"/>.
 		/// </summary>
 		/// <returns>Copy.</returns>
 		public override Message Clone()
 		{
-			var clone = new ConnectMessage();
+			var clone = new ConnectMessage
+			{
+				ClientVersion = ClientVersion,
+				SessionId = SessionId
+			};
+
 			CopyTo(clone);
 			return clone;
 		}
 
-		DateTimeOffset IServerTimeMessage.ServerTime => LocalTime;
+		DateTimeOffset IServerTimeMessage.ServerTime
+		{
+			get => LocalTime;
+			set => LocalTime = value;
+		}
 	}
 }

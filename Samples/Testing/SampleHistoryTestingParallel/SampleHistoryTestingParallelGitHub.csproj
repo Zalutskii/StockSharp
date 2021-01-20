@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\..\common_samples.props" />
   <PropertyGroup>
     <ProjectGuid>{6D7AC972-0EE2-44A8-B259-6C2046202670}</ProjectGuid>
@@ -20,10 +20,8 @@
     <Compile Include="..\SampleHistoryTesting\SmaStrategy.cs" Link="SmaStrategy.cs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="StockSharp.Xaml.Charting" Version="5.*" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="StockSharp.SampleHistoryData" Version="$(SampleHistoryDataVersion)" />
+    <PackageReference Include="StockSharp.Xaml.Charting" Version="$(StockSharpVer)" />
+    <PackageReference Include="StockSharp.Samples.HistoryData" Version="$(SampleHistoryDataVersion)" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\..\Algo\Algo.csproj" />
@@ -31,5 +29,6 @@
     <ProjectReference Include="..\..\..\Localization\Localization.csproj" />
     <ProjectReference Include="..\..\..\Logging\Logging.csproj" />
     <ProjectReference Include="..\..\..\Messages\Messages.csproj" />
+    <ProjectReference Include="..\..\..\Configuration\ConfigurationGitHub.csproj" />
   </ItemGroup>
 </Project>

@@ -18,6 +18,7 @@ namespace StockSharp.Algo.PnL
 	using System;
 	using System.Collections.Generic;
 
+	using Ecng.Common;
 	using Ecng.Collections;
 	using Ecng.Serialization;
 
@@ -128,7 +129,7 @@ namespace StockSharp.Algo.PnL
 						var manager = _managersByPf.SafeAdd(regMsg.PortfolioName, pf => new PortfolioPnLManager(pf));
 						_managersByTransId.Add(regMsg.TransactionId, manager);
 					}
-					
+
 					return null;
 				}
 
@@ -164,9 +165,9 @@ namespace StockSharp.Algo.PnL
 										return null;
 
 									if (execMsg.OrderId != null)
-										_managersByOrderId.TryAdd(execMsg.OrderId.Value, manager);
+										_managersByOrderId.TryAdd2(execMsg.OrderId.Value, manager);
 									else if (!execMsg.OrderStringId.IsEmpty())
-										_managersByOrderStringId.TryAdd(execMsg.OrderStringId, manager);
+										_managersByOrderStringId.TryAdd2(execMsg.OrderStringId, manager);
 								}
 							}
 
@@ -219,7 +220,7 @@ namespace StockSharp.Algo.PnL
 				}
 				case MessageTypes.QuoteChange:
 				{
-					if (!UseOrderBook)
+					if (!UseOrderBook || ((QuoteChangeMessage)message).State != null)
 						return null;
 
 					break;

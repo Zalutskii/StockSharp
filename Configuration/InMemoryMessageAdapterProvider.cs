@@ -9,6 +9,7 @@ namespace StockSharp.Configuration
 
 	using Ecng.Common;
 	using Ecng.Reflection;
+	using Ecng.Configuration;
 
 	using StockSharp.Logging;
 	using StockSharp.Messages;
@@ -61,7 +62,7 @@ namespace StockSharp.Configuration
 			"StockSharp.Logging",
 			"StockSharp.Messages",
 			"StockSharp.Xaml",
-			"StockSharp.Xaml.Actipro",
+			"StockSharp.Xaml.CodeEditor",
 			"StockSharp.Xaml.Charting",
 			"StockSharp.Xaml.Diagram",
 			"StockSharp.Studio.Core",
@@ -116,5 +117,16 @@ namespace StockSharp.Configuration
 
 		/// <inheritdoc />
 		public virtual IEnumerable<IMessageAdapter> CreateStockSharpAdapters(IdGenerator transactionIdGenerator, string login, SecureString password) => Enumerable.Empty<IMessageAdapter>();
+
+		/// <inheritdoc />
+		public virtual IMessageAdapter CreateTransportAdapter(IdGenerator transactionIdGenerator)
+		{
+			var type = ConfigManager.TryGet<Type>("transportAdapter");
+
+			if (type is null)
+				throw new NotSupportedException();
+
+			return type.CreateInstance<IMessageAdapter>(transactionIdGenerator);
+		}
 	}
 }

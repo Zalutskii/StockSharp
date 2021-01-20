@@ -7,14 +7,13 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Ecng.Interop" Version="$(EcngVer)" />
-    <PackageReference Include="Ecng.Data" Version="$(EcngVer)" />
-    <PackageReference Include="Microsoft.Windows.Compatibility" Version="3.1.0" />
+    <PackageReference Include="Ecng.Net" Version="$(EcngVer)" />
+    <PackageReference Include="Ecng.IO" Version="$(EcngVer)" />
+  
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\BusinessEntities\BusinessEntities.csproj" />
     <ProjectReference Include="..\Community\Community.csproj" />
-  </ItemGroup>
-  <ItemGroup Condition=" '$(TargetFramework)' == 'net48' ">
-    <Reference Include="System.Core" />
-    <Reference Include="System.ComponentModel.DataAnnotations" />
   </ItemGroup>
 </Project>

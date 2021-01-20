@@ -18,9 +18,19 @@ namespace StockSharp.Algo
 		IEnumerable<Subscription> Subscriptions { get; }
 
 		/// <summary>
+		/// Message received.
+		/// </summary>
+		event Action<Subscription, Message> SubscriptionReceived;
+
+		/// <summary>
 		/// Level1 received.
 		/// </summary>
 		event Action<Subscription, Level1ChangeMessage> Level1Received;
+
+		/// <summary>
+		/// Order book received.
+		/// </summary>
+		event Action<Subscription, QuoteChangeMessage> OrderBookReceived;
 
 		/// <summary>
 		/// Tick trade received.
@@ -76,6 +86,11 @@ namespace StockSharp.Algo
 		/// Order cancellation error event.
 		/// </summary>
 		event Action<Subscription, OrderFail> OrderCancelFailReceived;
+
+		/// <summary>
+		/// Order edition error event.
+		/// </summary>
+		event Action<Subscription, OrderFail> OrderEditFailReceived;
 
 		/// <summary>
 		/// Portfolio received.

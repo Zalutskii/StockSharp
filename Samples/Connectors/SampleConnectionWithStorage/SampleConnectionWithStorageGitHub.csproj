@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <Import Project="..\..\common_samples.props" />
   <PropertyGroup>
     <ProjectGuid>{DDEE1CE2-7283-4394-8FCF-514E8581F10F}</ProjectGuid>
@@ -10,7 +10,7 @@
     <UseWPF>true</UseWPF>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="StockSharp.Xaml.Charting" Version="5.*" />
+    <PackageReference Include="StockSharp.Xaml.Charting" Version="$(StockSharpVer)" />
   </ItemGroup>
   <ItemGroup>
     <ApplicationDefinition Include="..\SampleConnection\App.xaml">
@@ -20,16 +20,6 @@
     </ApplicationDefinition>
     <Page Include="..\SampleConnection\ChartWindow.xaml">
       <Link>ChartWindow.xaml</Link>
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="..\SampleConnection\DatesWindow.xaml">
-      <Link>DatesWindow.xaml</Link>
-      <Generator>MSBuild:Compile</Generator>
-      <SubType>Designer</SubType>
-    </Page>
-    <Page Include="..\SampleConnection\DepthSettingsWindow.xaml">
-      <Link>DepthSettingsWindow.xaml</Link>
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </Page>
@@ -89,13 +79,6 @@
     </Compile>
     <Compile Include="..\SampleConnection\ChartWindow.xaml.cs" Link="ChartWindow.xaml.cs">
       <DependentUpon>ChartWindow.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="..\SampleConnection\DatesWindow.xaml.cs" Link="DatesWindow.xaml.cs">
-      <DependentUpon>DatesWindow.xaml</DependentUpon>
-    </Compile>
-    <Compile Include="..\SampleConnection\DepthSettings.cs" Link="DepthSettings.cs" />
-    <Compile Include="..\SampleConnection\DepthSettingsWindow.xaml.cs" Link="DepthSettingsWindow.xaml.cs">
-      <DependentUpon>DepthSettingsWindow.xaml</DependentUpon>
     </Compile>
     <Compile Include="..\SampleConnection\Level1Window.xaml.cs" Link="Level1Window.xaml.cs">
       <DependentUpon>Level1Window.xaml</DependentUpon>

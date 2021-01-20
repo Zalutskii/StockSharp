@@ -26,7 +26,6 @@ namespace SampleHistoryTesting
 	using Ecng.Xaml;
 	using Ecng.Common;
 	using Ecng.Collections;
-	using Ecng.Localization;
 
 	using StockSharp.Algo;
 	using StockSharp.Algo.Candles;
@@ -79,24 +78,12 @@ namespace SampleHistoryTesting
 
 			HistoryPath.Folder = Paths.HistoryDataPath;
 
-			if (LocalizedStrings.ActiveLanguage == Languages.Russian)
-			{
-				SecId.Text = "RIZ2@FORTS";
+			SecId.Text = "SBER@TQBR";
 
-				From.EditValue = new DateTime(2012, 10, 1);
-				To.EditValue = new DateTime(2012, 10, 25);
+			From.EditValue = new DateTime(2020, 4, 1);
+			To.EditValue = new DateTime(2020, 4, 30);
 
-				TimeFrame.SelectedIndex = 1;
-			}
-			else
-			{
-				SecId.Text = "@ES#@CMEMINI";
-
-				From.EditValue = new DateTime(2015, 8, 1);
-				To.EditValue = new DateTime(2015, 8, 31);
-
-				TimeFrame.SelectedIndex = 0;
-			}
+			TimeFrame.SelectedIndex = 0;
 
 			_progressBars.AddRange(new[]
 			{
@@ -143,7 +130,7 @@ namespace SampleHistoryTesting
 				return;
 			}
 
-			if (_connectors.Any(t => t.State != EmulationStates.Stopped))
+			if (_connectors.Any(t => t.State != ChannelStates.Stopped))
 			{
 				MessageBox.Show(this, LocalizedStrings.Str3015);
 				return;
@@ -380,9 +367,9 @@ namespace SampleHistoryTesting
 					SecurityId = secId,
 					ServerTime = startTime,
 				}
-				.TryAdd(Level1Fields.PriceStep, secCode == "RIZ2" ? 10m : 0.05m)
-				.TryAdd(Level1Fields.StepPrice, 6m)
-				.TryAdd(Level1Fields.MinPrice, 10m)
+				.TryAdd(Level1Fields.PriceStep, 0.01m)
+				.TryAdd(Level1Fields.StepPrice, 0.01m)
+				.TryAdd(Level1Fields.MinPrice, 0.01m)
 				.TryAdd(Level1Fields.MaxPrice, 1000000m)
 				.TryAdd(Level1Fields.MarginBuy, 10000m)
 				.TryAdd(Level1Fields.MarginSell, 10000m);
@@ -478,14 +465,16 @@ namespace SampleHistoryTesting
 				if (emulationInfo.CustomHistoryAdapter != null)
 				{
 					connector.Adapter.InnerAdapters.Remove(connector.MarketDataAdapter);
-					connector.Adapter.InnerAdapters.Add(new EmulationMessageAdapter(emulationInfo.CustomHistoryAdapter(connector.TransactionIdGenerator), new InMemoryMessageChannel(new MessageByLocalTimeQueue(), "History out", err => err.LogError()), true, connector.EmulationAdapter.Emulator.SecurityProvider, connector.EmulationAdapter.Emulator.PortfolioProvider));
+
+					var emu = connector.EmulationAdapter.Emulator;
+					connector.Adapter.InnerAdapters.Add(new EmulationMessageAdapter(emulationInfo.CustomHistoryAdapter(connector.TransactionIdGenerator), new InMemoryMessageChannel(new MessageByLocalTimeQueue(), "History out", err => err.LogError()), true, emu.SecurityProvider, emu.PortfolioProvider, emu.ExchangeInfoProvider));
 				}
 
 				// set history range
 				connector.HistoryMessageAdapter.StartDate = startTime;
 				connector.HistoryMessageAdapter.StopDate = stopTime;
 
-				connector.NewSecurity += s =>
+				connector.SecurityReceived += (subscr, s) =>
 				{
 					if (s != security)
 						return;
@@ -558,7 +547,7 @@ namespace SampleHistoryTesting
 
 					data
 						.Group(strategy.CurrentTime)
-							.Add(pnlCurve, strategy.PnL - strategy.Commission ?? 0)
+							.Add(pnlCurve, strategy.PnL - (strategy.Commission ?? 0))
 							.Add(unrealizedPnLCurve, strategy.PnLManager.UnrealizedPnL ?? 0)
 							.Add(commissionCurve, strategy.Commission ?? 0);
 
@@ -582,13 +571,13 @@ namespace SampleHistoryTesting
 
 				connector.StateChanged += () =>
 				{
-					if (connector.State == EmulationStates.Stopped)
+					if (connector.State == ChannelStates.Stopped)
 					{
 						strategy.Stop();
 
 						SetIsChartEnabled(chart, false);
 
-						if (_connectors.All(c => c.State == EmulationStates.Stopped))
+						if (_connectors.All(c => c.State == ChannelStates.Stopped))
 						{
 							logManager.Dispose();
 							_connectors.Clear();
@@ -607,16 +596,16 @@ namespace SampleHistoryTesting
 								MessageBox.Show(this, LocalizedStrings.cancelled, title);
 						});
 					}
-					else if (connector.State == EmulationStates.Started)
+					else if (connector.State == ChannelStates.Started)
 					{
-						if (_connectors.All(c => c.State == EmulationStates.Started))
+						if (_connectors.All(c => c.State == ChannelStates.Started))
 							SetIsEnabled(false, true, true);
 
 						SetIsChartEnabled(chart, true);
 					}
-					else if (connector.State == EmulationStates.Suspended)
+					else if (connector.State == ChannelStates.Suspended)
 					{
-						if (_connectors.All(c => c.State == EmulationStates.Suspended))
+						if (_connectors.All(c => c.State == ChannelStates.Suspended))
 							SetIsEnabled(true, false, true);
 					}
 				};

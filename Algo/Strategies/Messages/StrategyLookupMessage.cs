@@ -20,6 +20,9 @@ namespace StockSharp.Algo.Strategies.Messages
 		{
 		}
 
+		/// <inheritdoc />
+		public override DataType DataType => StrategyDataType.Info;
+
 		/// <summary>
 		/// Create a copy of <see cref="StrategyLookupMessage"/>.
 		/// </summary>

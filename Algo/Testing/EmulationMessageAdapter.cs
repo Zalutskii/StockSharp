@@ -25,6 +25,7 @@ namespace StockSharp.Algo.Testing
 
     using StockSharp.BusinessEntities;
     using StockSharp.Messages;
+	using StockSharp.Algo.Storages;
 
 	/// <summary>
 	/// The interface of the real time market data adapter.
@@ -39,7 +40,6 @@ namespace StockSharp.Algo.Testing
 	public class EmulationMessageAdapter : MessageAdapterWrapper, IEmulationMessageAdapter
 	{
 		private readonly SynchronizedSet<long> _subscriptionIds = new SynchronizedSet<long>();
-		private readonly SynchronizedSet<long> _realSubscribeIds = new SynchronizedSet<long>();
 		private readonly SynchronizedSet<long> _emuOrderIds = new SynchronizedSet<long>();
 
 		private readonly IMessageAdapter _inAdapter;
@@ -53,10 +53,11 @@ namespace StockSharp.Algo.Testing
 		/// <param name="isEmulationOnly">Send <see cref="TimeMessage"/> to emulator.</param>
 		/// <param name="securityProvider">The provider of information about instruments.</param>
 		/// <param name="portfolioProvider">The portfolio to be used to register orders. If value is not given, the portfolio with default name Simulator will be created.</param>
-		public EmulationMessageAdapter(IMessageAdapter innerAdapter, IMessageChannel inChannel, bool isEmulationOnly, ISecurityProvider securityProvider, IPortfolioProvider portfolioProvider)
+		/// <param name="exchangeInfoProvider">Exchanges and trading boards provider.</param>
+		public EmulationMessageAdapter(IMessageAdapter innerAdapter, IMessageChannel inChannel, bool isEmulationOnly, ISecurityProvider securityProvider, IPortfolioProvider portfolioProvider, IExchangeInfoProvider exchangeInfoProvider)
 			: base(innerAdapter)
 		{
-			Emulator = new MarketEmulator(securityProvider, portfolioProvider)
+			Emulator = new MarketEmulator(securityProvider, portfolioProvider, exchangeInfoProvider, TransactionIdGenerator)
 			{
 				Parent = this,
 				Settings =
@@ -71,9 +72,16 @@ namespace StockSharp.Algo.Testing
 
 			_inAdapter = new SubscriptionOnlineMessageAdapter(Emulator);
 			_inAdapter = new ChannelMessageAdapter(_inAdapter, inChannel, new PassThroughMessageChannel());
-			_inAdapter.NewOutMessage += OnMarketEmulatorNewOutMessage;
+			_inAdapter.NewOutMessage += RaiseNewOutMessage;
 
 			_isEmulationOnly = isEmulationOnly;
+		}
+
+		/// <inheritdoc />
+		public override void Dispose()
+		{
+			_inAdapter.NewOutMessage -= RaiseNewOutMessage;
+			base.Dispose();
 		}
 
 		/// <summary>
@@ -92,10 +100,16 @@ namespace StockSharp.Algo.Testing
 		public IMessageChannel InChannel { get; }
 
 		/// <inheritdoc />
-		public override IEnumerable<MessageTypes> SupportedInMessages => InnerAdapter.SupportedInMessages.Concat(Emulator.SupportedInMessages).Except(OwnInnerAdapter ? ArrayHelper.Empty<MessageTypes>() : new[] { MessageTypes.SecurityLookup }).Distinct().ToArray();
+		public override IEnumerable<MessageTypes> SupportedInMessages => InnerAdapter.SupportedInMessages.Concat(Emulator.SupportedInMessages).Distinct().ToArray();
 		
 		/// <inheritdoc />
 		public override IEnumerable<MessageTypes> SupportedOutMessages => InnerAdapter.SupportedOutMessages.Concat(Emulator.SupportedOutMessages).Distinct().ToArray();
+
+		/// <inheritdoc />
+		public override bool? IsPositionsEmulationRequired => Emulator.IsPositionsEmulationRequired;
+
+		/// <inheritdoc />
+		public override bool IsSupportTransactionLog => Emulator.IsSupportTransactionLog;
 
 		private void SendToEmulator(Message message)
 		{
@@ -142,7 +156,6 @@ namespace StockSharp.Algo.Testing
 					if (message.Type == MessageTypes.Reset)
 					{
 						_subscriptionIds.Clear();
-						_realSubscribeIds.Clear();
 						_emuOrderIds.Clear();
 					}
 
@@ -166,26 +179,21 @@ namespace StockSharp.Algo.Testing
 				case MessageTypes.SecurityLookup:
 				case MessageTypes.TimeFrameLookup:
 				case MessageTypes.BoardLookup:
-				{
-					if (OwnInnerAdapter)
-						base.OnSendInMessage(message);
-					else
-					{
-						_subscriptionIds.Add(((ISubscriptionMessage)message).TransactionId);
-						SendToEmulator(message);
-					}
-
-					return true;
-				}
-
 				case MessageTypes.MarketData:
 				{
-					var transId = ((ISubscriptionMessage)message).TransactionId;
-					_subscriptionIds.Add(transId);
-					_realSubscribeIds.Add(transId);
+					_subscriptionIds.Add(((ISubscriptionMessage)message).TransactionId);
 
+					// sends to emu for init subscription ids
 					SendToEmulator(message);
+
 					return base.OnSendInMessage(message);
+				}
+
+				case MessageTypes.Level1Change:
+				case ExtendedMessageTypes.CommissionRule:
+				{
+					SendToEmulator(message);
+					return true;
 				}
 
 				default:
@@ -218,25 +226,19 @@ namespace StockSharp.Algo.Testing
 
 			switch (message.Type)
 			{
+				case MessageTypes.Connect:
+				case MessageTypes.Disconnect:
+				case MessageTypes.Reset:
+					break;
 				case MessageTypes.SubscriptionResponse:
 				case MessageTypes.SubscriptionFinished:
 				case MessageTypes.SubscriptionOnline:
 				{
-					if (!OwnInnerAdapter)
-					{
-						var originId = (IOriginalTransactionIdMessage)message;
-					
-						if (_realSubscribeIds.Contains(originId.OriginalTransactionId))
-							base.OnInnerAdapterNewOutMessage(message);
-					}
-					else
-						base.OnInnerAdapterNewOutMessage(message);
+					if (_subscriptionIds.Contains(((IOriginalTransactionIdMessage)message).OriginalTransactionId))
+						SendToEmulator(message);
 
 					break;
 				}
-				case MessageTypes.Connect:
-				case MessageTypes.Disconnect:
-				case MessageTypes.Reset:
 				//case MessageTypes.BoardState:
 				case MessageTypes.Portfolio:
 				case MessageTypes.PositionChange:
@@ -273,7 +275,7 @@ namespace StockSharp.Algo.Testing
 					break;
 				}
 
-				case ExtendedMessageTypes.Last:
+				case ExtendedMessageTypes.EmulationState:
 					SendToEmulator(message);
 					break;
 
@@ -315,55 +317,6 @@ namespace StockSharp.Algo.Testing
 					break;
 				}
 			}
-		}
-
-		private void OnMarketEmulatorNewOutMessage(Message message)
-		{
-			switch (message.Type)
-			{
-				case MessageTypes.Connect:
-				{
-					var connectMsg = (ConnectMessage)message;
-
-					if (connectMsg.Error == null)
-					{
-						var pf = Portfolio.CreateSimulator();
-
-						var pfMsg = pf.ToMessage();
-						pfMsg.IsSubscribe = true;
-						pfMsg.TransactionId = TransactionIdGenerator.GetNextId();
-						SendToEmulator(pfMsg);
-						SendToEmulator(pf.ToChangeMessage());
-					}
-
-					if (OwnInnerAdapter)
-						return;
-
-					break;
-				}
-				case MessageTypes.Reset:
-				case MessageTypes.Disconnect:
-				{
-					if (OwnInnerAdapter)
-						return;
-
-					break;
-				}
-
-				case MessageTypes.SubscriptionOnline:
-				case MessageTypes.SubscriptionFinished:
-				case MessageTypes.SubscriptionResponse:
-				{
-					var originId = (IOriginalTransactionIdMessage)message;
-					
-					if (_realSubscribeIds.Contains(originId.OriginalTransactionId))
-						return;
-
-					break;
-				}
-			}
-
-			RaiseNewOutMessage(message);
 		}
 
 		private void ProcessOrderMessage(string portfolioName, OrderMessage message)
@@ -416,6 +369,6 @@ namespace StockSharp.Algo.Testing
 		/// </summary>
 		/// <returns>Copy.</returns>
 		public override IMessageChannel Clone()
-			=> new EmulationMessageAdapter(InnerAdapter.TypedClone(), InChannel, _isEmulationOnly, Emulator.SecurityProvider, Emulator.PortfolioProvider);
+			=> new EmulationMessageAdapter(InnerAdapter.TypedClone(), InChannel, _isEmulationOnly, Emulator.SecurityProvider, Emulator.PortfolioProvider, Emulator.ExchangeInfoProvider);
 	}
 }

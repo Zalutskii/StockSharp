@@ -27,7 +27,6 @@ namespace StockSharp.Algo.Storages
 
 	using Ecng.Collections;
 	using Ecng.Common;
-	using Ecng.Interop;
 	using Ecng.Serialization;
 	using Ecng.ComponentModel;
 
@@ -52,9 +51,9 @@ namespace StockSharp.Algo.Storages
 
 			//private static readonly Version _dateVersion = new Version(1, 0);
 
-			public LocalMarketDataStorageDrive(Type dataType, object arg, string path, StorageFormats format, LocalMarketDataDrive drive)
+			public LocalMarketDataStorageDrive(DataType dataType, string path, StorageFormats format, LocalMarketDataDrive drive)
 			{
-				_dataType = DataType.Create(dataType, arg);
+				_dataType = dataType ?? throw new ArgumentNullException(nameof(dataType));
 
 				var fileName = GetFileName(_dataType);
 
@@ -77,7 +76,7 @@ namespace StockSharp.Algo.Storages
 					}
 					else
 					{
-						var dates = InteropHelper
+						var dates = IOHelper
 							.GetDirectories(_path)
 							.Where(dir => File.Exists(IOPath.Combine(dir, _fileNameWithExtension)))
 							.Select(dir => GetDate(IOPath.GetFileName(dir)));
@@ -128,7 +127,7 @@ namespace StockSharp.Algo.Storages
 					if (Directory.EnumerateFiles(dir).IsEmpty())
 					{
 						lock (_cacheSync)
-							InteropHelper.BlockDeleteDir(dir);
+							IOHelper.BlockDeleteDir(dir);
 					}
 				}
 
@@ -246,7 +245,7 @@ namespace StockSharp.Algo.Storages
 							//stream.Write(date);
 						}
 					});
-					
+
 					lock (_cacheSync)
 					{
 						stream.Position = 0;
@@ -288,7 +287,7 @@ namespace StockSharp.Algo.Storages
 			}
 		}
 
-		private readonly SynchronizedDictionary<Tuple<SecurityId, Type, object, StorageFormats>, LocalMarketDataStorageDrive> _drives = new SynchronizedDictionary<Tuple<SecurityId, Type, object, StorageFormats>, LocalMarketDataStorageDrive>();
+		private readonly SynchronizedDictionary<Tuple<SecurityId, DataType, StorageFormats>, LocalMarketDataStorageDrive> _drives = new SynchronizedDictionary<Tuple<SecurityId, DataType, StorageFormats>, LocalMarketDataStorageDrive>();
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="LocalMarketDataDrive"/>.
@@ -365,7 +364,7 @@ namespace StockSharp.Algo.Storages
 
 			IEnumerable<DataType> GetDataTypes(string secPath)
 			{
-				return InteropHelper
+				return IOHelper
 				       .GetDirectories(secPath)
 				       .SelectMany(dateDir => Directory.GetFiles(dateDir, "*" + ext))
 				       .Select(IOPath.GetFileNameWithoutExtension)
@@ -387,7 +386,7 @@ namespace StockSharp.Algo.Storages
 				lock (_availableDataTypes.SyncRoot)
 				{
 					var tuple = _availableDataTypes.SafeAdd(Path, key => RefTuple.Create(new HashSet<DataType>(), false));
-				
+
 					if (!tuple.Second)
 					{
 						tuple.First.AddRange(Directory
@@ -408,13 +407,16 @@ namespace StockSharp.Algo.Storages
 		}
 
 		/// <inheritdoc />
-		public override IMarketDataStorageDrive GetStorageDrive(SecurityId securityId, Type dataType, object arg, StorageFormats format)
+		public override IMarketDataStorageDrive GetStorageDrive(SecurityId securityId, DataType dataType, StorageFormats format)
 		{
-			if (securityId.IsDefault())
+			if (dataType is null)
+				throw new ArgumentNullException(nameof(dataType));
+
+			if (dataType.IsSecurityRequired && securityId == default)
 				throw new ArgumentNullException(nameof(securityId));
 
-			return _drives.SafeAdd(Tuple.Create(securityId, dataType, arg, format),
-				key => new LocalMarketDataStorageDrive(dataType, arg, GetSecurityPath(securityId), format, this));
+			return _drives.SafeAdd(Tuple.Create(securityId, dataType, format),
+				key => new LocalMarketDataStorageDrive(dataType, GetSecurityPath(securityId), format, this));
 		}
 
 		/// <inheritdoc />
@@ -445,7 +447,7 @@ namespace StockSharp.Algo.Storages
 			var securityPaths = new List<string>();
 			var progress = 0;
 
-			foreach (var letterDir in InteropHelper.GetDirectories(Path))
+			foreach (var letterDir in IOHelper.GetDirectories(Path))
 			{
 				if (isCancelled())
 					break;
@@ -455,7 +457,7 @@ namespace StockSharp.Algo.Storages
 				if (name == null || name.Length != 1)
 					continue;
 
-				securityPaths.AddRange(InteropHelper.GetDirectories(letterDir));
+				securityPaths.AddRange(IOHelper.GetDirectories(letterDir));
 			}
 
 			if (isCancelled())
@@ -465,7 +467,7 @@ namespace StockSharp.Algo.Storages
 
 			updateProgress(0, iterCount);
 
-			var existingIds = securityProvider.LookupAll().Select(s => s.Id).ToHashSet(StringComparer.InvariantCultureIgnoreCase);
+			var existingIds = securityProvider.LookupAll().Select(s => s.Id).ToIgnoreCaseSet();
 
 			foreach (var securityPath in securityPaths)
 			{
@@ -510,7 +512,7 @@ namespace StockSharp.Algo.Storages
 							Name = id.SecurityCode,
 						};
 
-						if (security.IsMatch(criteria, criteria.GetSecurityTypes()))
+						if (security.IsMatch(criteria))
 							newSecurity(security);
 
 						existingIds.Add(securityId);
@@ -562,10 +564,19 @@ namespace StockSharp.Algo.Storages
 		/// </summary>
 		/// <param name="dataType">Data type info.</param>
 		/// <param name="format">Storage format. If set an extension will be added to the file name.</param>
+		/// <param name="throwIfUnknown">Throw exception if the specified type is unknown.</param>
 		/// <returns>The file name.</returns>
-		public static string GetFileName(DataType dataType, StorageFormats? format = null)
+		public static string GetFileName(DataType dataType, StorageFormats? format = null, bool throwIfUnknown = true)
 		{
 			var fileName = dataType.DataTypeToFileName();
+
+			if (fileName == null)
+			{
+				if (throwIfUnknown)
+					throw new NotSupportedException(LocalizedStrings.Str2872Params.Put(dataType.ToString()));
+
+				return null;
+			}
 
 			if (format != null)
 				fileName += GetExtension(format.Value);
@@ -618,10 +629,7 @@ namespace StockSharp.Algo.Storages
 		/// <returns>The path to the folder with market data.</returns>
 		public string GetSecurityPath(SecurityId securityId)
 		{
-			if (securityId.IsDefault())
-				throw new ArgumentNullException(nameof(securityId));
-
-			var id = securityId.ToStringId();
+			var id = securityId == default ? TraderHelper.AllSecurity.Id : securityId.ToStringId();
 
 			var folderName = id.SecurityIdToFolderName();
 

@@ -3,6 +3,8 @@ namespace StockSharp.Algo.Storages.Remote.Messages
 	using System;
 	using System.Runtime.Serialization;
 
+	using Ecng.Common;
+
 	using StockSharp.Messages;
 
 	/// <summary>
@@ -16,6 +18,7 @@ namespace StockSharp.Algo.Storages.Remote.Messages
 		public RemoteFileCommandMessage()
 			: base(ExtendedMessageTypes.RemoteFileCommand)
 		{
+			Scope = CommandScopes.File;
 		}
 
 		/// <inheritdoc />
@@ -26,7 +29,7 @@ namespace StockSharp.Algo.Storages.Remote.Messages
 		/// Market data type.
 		/// </summary>
 		[DataMember]
-		public DataType DataType { get; set; }
+		public DataType FileDataType { get; set; }
 
 		/// <summary>
 		/// Start date.
@@ -46,11 +49,17 @@ namespace StockSharp.Algo.Storages.Remote.Messages
 		[DataMember]
 		public StorageFormats Format { get; set; }
 
+		private byte[] _body = ArrayHelper.Empty<byte>();
+
 		/// <summary>
 		/// File body.
 		/// </summary>
 		[DataMember]
-		public byte[] Body { get; set; }
+		public byte[] Body
+		{
+			get => _body;
+			set => _body = value ?? throw new ArgumentNullException(nameof(value));
+		}
 
 		/// <summary>
 		/// Create a copy of <see cref="RemoteFileCommandMessage"/>.
@@ -61,7 +70,7 @@ namespace StockSharp.Algo.Storages.Remote.Messages
 			var clone = new RemoteFileCommandMessage
 			{
 				SecurityId = SecurityId,
-				DataType = DataType,
+				FileDataType = FileDataType?.TypedClone(),
 				StartDate = StartDate,
 				EndDate = EndDate,
 				Format = Format,
@@ -75,7 +84,7 @@ namespace StockSharp.Algo.Storages.Remote.Messages
 		/// <inheritdoc />
 		public override string ToString()
 		{
-			return base.ToString() + $",SecId={SecurityId},Type={DataType},Start={StartDate},End={EndDate},Fmt={Format}";
+			return base.ToString() + $",SecId={SecurityId},DT={FileDataType},Start={StartDate},End={EndDate},Fmt={Format},BodyLen={Body.Length}";
 		}
 	}
 }

@@ -97,15 +97,6 @@ namespace StockSharp.Messages
 		public bool? IsMarketMaker { get; set; }
 
 		/// <summary>
-		/// Is margin enabled.
-		/// </summary>
-		[DataMember]
-		[DisplayNameLoc(LocalizedStrings.MarginKey)]
-		[DescriptionLoc(LocalizedStrings.IsMarginKey)]
-		[MainCategory]
-		public bool? IsMargin { get; set; }
-
-		/// <summary>
 		/// Slippage in trade price.
 		/// </summary>
 		[DataMember]
@@ -120,6 +111,30 @@ namespace StockSharp.Messages
 		[DisplayNameLoc(LocalizedStrings.ManualKey)]
 		[DescriptionLoc(LocalizedStrings.IsOrderManualKey)]
 		public bool? IsManual { get; set; }
+
+		/// <summary>
+		/// Minimum quantity of an order to be executed.
+		/// </summary>
+		[DataMember]
+		public decimal? MinOrderVolume { get; set; }
+
+		/// <summary>
+		/// Position effect.
+		/// </summary>
+		[DataMember]
+		public OrderPositionEffects? PositionEffect { get; set; }
+
+		/// <summary>
+		/// Post-only order.
+		/// </summary>
+		[DataMember]
+		public bool? PostOnly { get; set; }
+
+		/// <summary>
+		/// Margin leverage.
+		/// </summary>
+		[DataMember]
+		public int? Leverage { get; set; }
 
 		/// <summary>
 		/// Initializes a new instance of the <see cref="OrderRegisterMessage"/>.
@@ -145,9 +160,7 @@ namespace StockSharp.Messages
 		public override Message Clone()
 		{
 			var clone = new OrderRegisterMessage(Type);
-
 			CopyTo(clone);
-
 			return clone;
 		}
 
@@ -166,15 +179,29 @@ namespace StockSharp.Messages
 			destination.TillDate = TillDate;
 			destination.TimeInForce = TimeInForce;
 			destination.IsMarketMaker = IsMarketMaker;
-			destination.IsMargin = IsMargin;
 			destination.Slippage = Slippage;
 			destination.IsManual = IsManual;
+			destination.MinOrderVolume = MinOrderVolume;
+			destination.PositionEffect = PositionEffect;
+			destination.PostOnly = PostOnly;
+			destination.Leverage = Leverage;
 		}
 
 		/// <inheritdoc />
 		public override string ToString()
 		{
-			return base.ToString() + $",Price={Price},Side={Side},Vol={Volume}/{VisibleVolume},Till={TillDate},TIF={TimeInForce},MM={IsMarketMaker},MR={IsMargin},SLP={Slippage},MN={IsManual}";
+			var str = base.ToString() + $",Price={Price},Side={Side},Vol={Volume}/{VisibleVolume}/{MinOrderVolume},Till={TillDate},TIF={TimeInForce},MM={IsMarketMaker},SLP={Slippage},MN={IsManual}";
+
+			if (PositionEffect != null)
+				str += $",PosEffect={PositionEffect.Value}";
+
+			if (PostOnly != null)
+				str += $",PostOnly={PostOnly.Value}";
+
+			if (Leverage != null)
+				str += $",Leverage={Leverage.Value}";
+
+			return str;
 		}
 	}
 }

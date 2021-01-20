@@ -8,6 +8,11 @@ namespace StockSharp.Messages
 	public interface ISubscriptionMessage : ITransactionIdMessage, IOriginalTransactionIdMessage
 	{
 		/// <summary>
+		/// Message contains fields with non default values.
+		/// </summary>
+		bool FilterEnabled { get; }
+
+		/// <summary>
 		/// Start date, from which data needs to be retrieved.
 		/// </summary>
 		DateTimeOffset? From { get; set; }
@@ -23,8 +28,18 @@ namespace StockSharp.Messages
 		bool IsSubscribe { get; set; }
 
 		/// <summary>
+		/// Skip count.
+		/// </summary>
+		long? Skip { get; set; }
+
+		/// <summary>
 		/// Max count.
 		/// </summary>
 		long? Count { get; set; }
+
+		/// <summary>
+		/// Data type info.
+		/// </summary>
+		DataType DataType { get; }
 	}
 }

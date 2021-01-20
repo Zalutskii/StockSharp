@@ -1145,5 +1145,50 @@ namespace StockSharp.BusinessEntities
 			Name = "IQFD",
 			FullNameLoc = LocalizedStrings.IQFeedKey,
 		};
+
+		/// <summary>
+		/// Information about <see cref="IBKR"/>.
+		/// </summary>
+		public static Exchange IBKR { get; } = new Exchange
+		{
+			Name = "IBKR",
+			FullNameLoc = LocalizedStrings.InteractiveBrokersKey,
+		};
+
+		/// <summary>
+		/// Information about <see cref="STSH"/>.
+		/// </summary>
+		public static Exchange STSH { get; } = new Exchange
+		{
+			Name = "STSH",
+			FullNameLoc = LocalizedStrings.StockSharpKey,
+		};
+
+		/// <summary>
+		/// Information about <see cref="STRLG"/>.
+		/// </summary>
+		public static Exchange STRLG { get; } = new Exchange
+		{
+			Name = "STRLG",
+			FullNameLoc = LocalizedStrings.SterlingKey,
+		};
+
+		/// <summary>
+		/// Information about <see cref="QNDL"/>.
+		/// </summary>
+		public static Exchange QNDL { get; } = new Exchange
+		{
+			Name = "QNDL",
+			FullNameLoc = LocalizedStrings.QuandlKey,
+		};
+
+		/// <summary>
+		/// Information about <see cref="QTFD"/>.
+		/// </summary>
+		public static Exchange QTFD { get; } = new Exchange
+		{
+			Name = "QTFD",
+			FullNameLoc = LocalizedStrings.QuantFeed,
+		};
 	}
 }

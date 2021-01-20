@@ -91,28 +91,28 @@ namespace SampleHistoryTestingParallel
 				DefaultDrive = new LocalMarketDataDrive(HistoryPath.Folder)
 			};
 
-			var timeFrame = TimeSpan.FromMinutes(5);
+			var timeFrame = TimeSpan.FromMinutes(1);
 
 			// create test security
 			var security = new Security
 			{
-				Id = "RIZ2@FORTS", // sec id has the same name as folder with historical data
-				Code = "RIZ2",
-				Name = "RTS-12.12",
-				Board = ExchangeBoard.Forts,
+				Id = "SBER@TQBR", // sec id has the same name as folder with historical data
+				Code = "SBER",
+				Name = "SBER",
+				Board = ExchangeBoard.Micex,
 			};
 
-			var startTime = new DateTime(2012, 10, 1);
-			var stopTime = new DateTime(2012, 10, 31);
+			var startTime = new DateTime(2020, 4, 1);
+			var stopTime = new DateTime(2020, 4, 20);
 
 			var level1Info = new Level1ChangeMessage
 			{
 				SecurityId = security.ToSecurityId(),
 				ServerTime = startTime,
 			}
-			.TryAdd(Level1Fields.PriceStep, 10m)
-			.TryAdd(Level1Fields.StepPrice, 6m)
-			.TryAdd(Level1Fields.MinPrice, 10m)
+			.TryAdd(Level1Fields.PriceStep, 0.01m)
+			.TryAdd(Level1Fields.StepPrice, 0.01m)
+			.TryAdd(Level1Fields.MinPrice, 0.01m)
 			.TryAdd(Level1Fields.MaxPrice, 1000000m)
 			.TryAdd(Level1Fields.MarginBuy, 10000m)
 			.TryAdd(Level1Fields.MarginSell, 10000m);
@@ -136,25 +136,25 @@ namespace SampleHistoryTestingParallel
 			};
 
 			// handle historical time for update ProgressBar
-			_batchEmulation.ProgressChanged += (connector, single, total) => this.GuiAsync(() => TestingProcess.Value = total);
+			_batchEmulation.TotalProgressChanged += (currBatch, total) => this.GuiAsync(() => TestingProcess.Value = total);
 
 			_batchEmulation.StateChanged += (oldState, newState) =>
 			{
 				var isFinished = _batchEmulation.IsFinished;
 
-				if (_batchEmulation.State == EmulationStates.Stopped)
+				if (_batchEmulation.State == ChannelStates.Stopped)
 					_batchEmulation = null;
 
 				this.GuiAsync(() =>
 				{
 					switch (newState)
 					{
-						case EmulationStates.Stopping:
-						case EmulationStates.Starting:
-						case EmulationStates.Suspending:
+						case ChannelStates.Stopping:
+						case ChannelStates.Starting:
+						case ChannelStates.Suspending:
 							SetIsEnabled(false, false, false);
 							break;
-						case EmulationStates.Stopped:
+						case ChannelStates.Stopped:
 							SetIsEnabled(true, false, false);
 
 							if (isFinished)
@@ -166,10 +166,10 @@ namespace SampleHistoryTestingParallel
 								MessageBox.Show(this, LocalizedStrings.cancelled);
 
 							break;
-						case EmulationStates.Started:
+						case ChannelStates.Started:
 							SetIsEnabled(false, true, true);
 							break;
-						case EmulationStates.Suspended:
+						case ChannelStates.Suspended:
 							SetIsEnabled(true, false, true);
 							break;
 						default:

@@ -77,10 +77,8 @@ namespace StockSharp.Messages
 
 				_innerAdapter = value;
 
-				if (_innerAdapter == null)
-					throw new ArgumentException();
-
-				_innerAdapter.NewOutMessage += InnerAdapterNewOutMessage;
+				if (_innerAdapter != null)
+					_innerAdapter.NewOutMessage += InnerAdapterNewOutMessage;
 			}
 		}
 
@@ -119,7 +117,7 @@ namespace StockSharp.Messages
 			NewOutMessage?.Invoke(message);
 		}
 
-		bool IMessageChannel.IsOpened => InnerAdapter.IsOpened;
+		ChannelStates IMessageChannel.State => InnerAdapter.State;
 
 		void IMessageChannel.Open()
 		{
@@ -181,10 +179,7 @@ namespace StockSharp.Messages
 			}
 			catch (Exception ex)
 			{
-				this.AddErrorLog(ex);
-
-				message.HandleErrorResponse(ex, CurrentTime, RaiseNewOutMessage);
-
+				message.HandleErrorResponse(ex, this, RaiseNewOutMessage);
 				throw;
 			}
 		}
@@ -235,6 +230,13 @@ namespace StockSharp.Messages
 		{
 			get => InnerAdapter.Parent;
 			set => InnerAdapter.Parent = value;
+		}
+
+		/// <inheritdoc />
+		public event Action<ILogSource> ParentRemoved
+		{
+			add { }
+			remove { }
 		}
 
 		LogLevels ILogSource.LogLevel
@@ -320,9 +322,6 @@ namespace StockSharp.Messages
 		/// <inheritdoc />
 		public virtual MessageAdapterCategories Categories => InnerAdapter.Categories;
 
-		/// <inheritdoc />
-		public virtual OrderCancelVolumeRequireTypes? OrderCancelVolumeRequired => InnerAdapter.OrderCancelVolumeRequired;
-
 		IEnumerable<Tuple<string, Type>> IMessageAdapter.SecurityExtendedFields => InnerAdapter.SecurityExtendedFields;
 
 		/// <inheritdoc />
@@ -340,6 +339,9 @@ namespace StockSharp.Messages
 		/// <inheritdoc />
 		public IEnumerable<Level1Fields> CandlesBuildFrom => InnerAdapter.CandlesBuildFrom;
 
+		/// <inheritdoc />
+		public virtual bool IsSupportTransactionLog => InnerAdapter.IsSupportTransactionLog;
+
 		Type IMessageAdapter.OrderConditionType => InnerAdapter.OrderConditionType;
 
 		bool IMessageAdapter.HeartbeatBeforConnect => InnerAdapter.HeartbeatBeforConnect;
@@ -347,6 +349,29 @@ namespace StockSharp.Messages
 		Uri IMessageAdapter.Icon => InnerAdapter.Icon;
 
 		bool IMessageAdapter.IsAutoReplyOnTransactonalUnsubscription => InnerAdapter.IsAutoReplyOnTransactonalUnsubscription;
+
+		bool IMessageAdapter.IsReplaceCommandEditCurrent => InnerAdapter.IsReplaceCommandEditCurrent;
+
+		bool IMessageAdapter.EnqueueSubscriptions
+		{
+			get => InnerAdapter.EnqueueSubscriptions;
+			set => InnerAdapter.EnqueueSubscriptions = value;
+		}
+
+		bool IMessageAdapter.UseChannels => InnerAdapter.UseChannels;
+
+		TimeSpan IMessageAdapter.IterationInterval => InnerAdapter.IterationInterval;
+
+		string IMessageAdapter.FeatureName => InnerAdapter.FeatureName;
+
+		/// <inheritdoc />
+		public virtual bool? IsPositionsEmulationRequired => InnerAdapter.IsPositionsEmulationRequired;
+
+		bool IMessageAdapter.GenerateOrderBookFromLevel1
+		{
+			get => InnerAdapter.GenerateOrderBookFromLevel1;
+			set => InnerAdapter.GenerateOrderBookFromLevel1 = value;
+		}
 
 		IOrderLogMarketDepthBuilder IMessageAdapter.CreateOrderLogMarketDepthBuilder(SecurityId securityId)
 			=> InnerAdapter.CreateOrderLogMarketDepthBuilder(securityId);
@@ -360,6 +385,9 @@ namespace StockSharp.Messages
 			=> InnerAdapter.GetHistoryStepSize(dataType, out iterationInterval);
 
 		/// <inheritdoc />
+		public virtual int? GetMaxCount(DataType dataType) => InnerAdapter.GetMaxCount(dataType);
+
+		/// <inheritdoc />
 		public virtual bool IsAllDownloadingSupported(DataType dataType)
 			=> InnerAdapter.IsAllDownloadingSupported(dataType);
 
@@ -370,6 +398,9 @@ namespace StockSharp.Messages
 		/// <inheritdoc />
 		public virtual void Dispose()
 		{
+			if (InnerAdapter is null)
+				return;
+
 			InnerAdapter.NewOutMessage -= InnerAdapterNewOutMessage;
 
 			if (OwnInnerAdapter)

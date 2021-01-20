@@ -13,12 +13,13 @@ Created: 2015, 11, 11, 2:32 PM
 Copyright 2010 by StockSharp, LLC
 *******************************************************************************************/
 #endregion S# License
+
 namespace StockSharp.Messages
 {
 	using System;
-	using System.ComponentModel;
 	using System.ComponentModel.DataAnnotations;
 	using System.Runtime.Serialization;
+	using System.ComponentModel;
 
 	using Ecng.Common;
 	using Ecng.Serialization;
@@ -37,7 +38,7 @@ namespace StockSharp.Messages
 		[DisplayNameLoc(LocalizedStrings.Str361Key)]
 		[DescriptionLoc(LocalizedStrings.SecurityIdKey, true)]
 		[MainCategory]
-		[ReadOnly(true)]
+		[TypeConverter(typeof(StringToSecurityIdTypeConverter))]
 		public SecurityId SecurityId { get; set; }
 
 		/// <summary>
@@ -107,7 +108,7 @@ namespace StockSharp.Messages
 		[MainCategory]
 		[Nullable]
 		public int? Decimals { get; set; }
-		
+
 		/// <summary>
 		/// Minimum price step.
 		/// </summary>
@@ -225,7 +226,7 @@ namespace StockSharp.Messages
 		/// </summary>
 		[DataMember]
 		public decimal? IssueSize { get; set; }
-		
+
 		/// <summary>
 		/// Date of issue.
 		/// </summary>
@@ -277,6 +278,15 @@ namespace StockSharp.Messages
 		public decimal? FaceValue { get; set; }
 
 		/// <summary>
+		/// Identifier on primary exchange.
+		/// </summary>
+		[DataMember]
+		public SecurityId PrimaryId { get; set; }
+
+		/// <inheritdoc />
+		public override DataType DataType => DataType.Securities;
+
+		/// <summary>
 		/// Initializes a new instance of the <see cref="SecurityMessage"/>.
 		/// </summary>
 		public SecurityMessage()
@@ -311,9 +321,19 @@ namespace StockSharp.Messages
 		/// <inheritdoc />
 		public override void CopyTo(SecurityMessage destination)
 		{
-			base.CopyTo(destination);
+			CopyEx(destination, true);
+		}
 
-			destination.OriginalTransactionId = OriginalTransactionId;
+		/// <summary>
+		/// Copy the message into the <paramref name="destination" />.
+		/// </summary>
+		/// <param name="destination">The object, to which copied information.</param>
+		/// <param name="copyBase">Copy <see cref="BaseSubscriptionIdMessage{TMessage}"/>.</param>
+		public void CopyEx(SecurityMessage destination, bool copyBase)
+		{
+			if (copyBase)
+				base.CopyTo(destination);
+
 			destination.SecurityId = SecurityId;
 			destination.Name = Name;
 			destination.ShortName = ShortName;
@@ -341,6 +361,7 @@ namespace StockSharp.Messages
 			destination.BasketCode = BasketCode;
 			destination.BasketExpression = BasketExpression;
 			destination.FaceValue = FaceValue;
+			destination.PrimaryId = PrimaryId;
 		}
 
 		/// <inheritdoc />
@@ -401,7 +422,7 @@ namespace StockSharp.Messages
 
 			if (BinaryOptionType != null)
 				str += $",Bin={BinaryOptionType}";
-			
+
 			if (Shortable != null)
 				str += $",Strike={Shortable}";
 
@@ -410,6 +431,9 @@ namespace StockSharp.Messages
 
 			if (FaceValue != null)
 				str += $",FaceValue={FaceValue}";
+
+			if (PrimaryId != default)
+				str += $",Primary={PrimaryId}";
 
 			return str;
 		}
